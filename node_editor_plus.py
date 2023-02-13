@@ -46,6 +46,9 @@ class NEPComment(QGraphicsItem):
     content_rect    = None
     label_text_edit = None
     bounding_rect   = None # full bounds
+    COLOR_DEFAULT  = QColor(255,255,255,50)
+    COLOR_SELECTED = QColor(67, 252, 162, 255)
+
     def __init__(self, label, content_rect):
         super().__init__()
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -55,7 +58,7 @@ class NEPComment(QGraphicsItem):
         self.bounding_rect = self.content_rect
         #self.bounding_rect.adjust()
         self.set_label(label)
-        self.bg_color = QColor(255,255,255,50)
+        self.bg_color = self.COLOR_DEFAULT
 
     def set_label(self, label):
         self.label = label
@@ -72,16 +75,13 @@ class NEPComment(QGraphicsItem):
             pxy.setPos( self.label_rect.x(), self.label_rect.y() )
         else:
             self.Qlabel.setText(self.label)
-
-
         
     def boundingRect(self):
         return self.bounding_rect
 
     def paint(self, painter, option, widget):
         if self.isSelected():
-            hi_green = QColor(67, 252, 162, 255)
-            pen      = QPen(hi_green, 2)
+            pen      = QPen(self.COLOR_SELECTED, 2)
         else:
             pen      = QPen(Qt.black, 2)
 
@@ -92,8 +92,6 @@ class NEPComment(QGraphicsItem):
         painter.fillPath(path, self.bg_color )
         painter.drawPath(path)
 
-
-        
     def show_rename_edit_line(self):
         if not self.label_text_edit:
             self.label_text_edit = QLineEdit(self.label)
@@ -154,11 +152,21 @@ class NEPComment(QGraphicsItem):
         if new_color.isValid():
             new_color.setAlpha(50)
             self.bg_color = new_color
-            self.update_label_color()
+            self.update_label_color(new_color)
 
-    def update_label_color(self):
-        self.Qlabel.setStyleSheet("QLabel { color : "+self.bg_color.name()+"; }")
+    def update_label_color(self, QColor):
+        self.Qlabel.setStyleSheet("QLabel { color : "+QColor.name()+"; }")
 
+    def itemChange(self, change, value):
+        # tracks select status
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:
+                self.update_label_color(self.COLOR_SELECTED)
+            else:
+                self.update_label_color(self.bg_color)
+
+        return QGraphicsItem.itemChange(self, change, value)
+        
 
     
 
