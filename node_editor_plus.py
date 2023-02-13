@@ -41,6 +41,7 @@ class NEPComment(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
         self.set_label(label)
+        self.bg_color = QColor(255,255,255,50)
         
     def set_label(self, label):
         self.label = label
@@ -63,7 +64,7 @@ class NEPComment(QGraphicsItem):
         path.addRoundedRect(self.content_rect, 20, 20)
         
         painter.setPen(pen)
-        painter.fillPath(path, QColor(255,255,255,50) )
+        painter.fillPath(path, self.bg_color )
         painter.drawPath(path)
 
         painter.setPen(label_pen)
@@ -123,6 +124,17 @@ class NEPComment(QGraphicsItem):
             self.set_label( new_label )
             self.label_text_edit.setVisible(False)
 
+    def set_bg_color(self, *args):
+        new_color = QColorDialog.getColor()
+        if new_color.isValid():
+            new_color.setAlpha(50)
+            self.bg_color = new_color
+            # force update of graph
+            #super().mouseReleaseEvent("")
+            #cmds.refresh()
+
+
+    
 
 class NodeEditorPlus():
     node_editor = None
@@ -145,6 +157,18 @@ class NodeEditorPlus():
             self.create_comment_on_selection()
         elif key_pressed == "F2":
             self.rename_comment()
+        elif key_pressed == "B":
+            self.color_comment()
+
+
+    def color_comment(self):
+        scene = getCurrentView(self.node_editor)
+        if scene:
+            sel = scene.selectedItems()
+            if sel:
+                for item in sel:
+                    if type(item) == NEPComment:
+                        item.set_bg_color()
 
 
     def rename_comment(self):
