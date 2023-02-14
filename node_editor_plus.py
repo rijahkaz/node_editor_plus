@@ -46,9 +46,12 @@ class NEPComment(QGraphicsItem):
     content_rect    = None
     label_text_edit = None
     bounding_rect   = None # full bounds
+    is_pinned = False
+    pin_icon_off = None
+    pin_icon_on  = None
     COLOR_DEFAULT  = QColor(255,255,255,50)
     COLOR_SELECTED = QColor(67, 252, 162, 255)
-
+    temp_item_list = []
     def __init__(self, label, content_rect):
         super().__init__()
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -56,14 +59,60 @@ class NEPComment(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
         self.bounding_rect = self.content_rect
-        #self.bounding_rect.adjust()
         self.set_label(label)
+
+        self.pin_icon_off = QIcon(":/pinItem.png")
+        self.pin_icon_on  = QIcon(":/pinON.png")
+        self.create_pin()
+
         self.bg_color = self.COLOR_DEFAULT
+
+    def add_child(self, item):
+        # On start drag, parents and fixes position of overlapping nodes
+        old_pos = item.scenePos()
+        item.setParentItem(self)
+        item.setPos(self.sceneTransform().inverted()[0].map(old_pos))
+
+    def remove_child(self, item):
+        # On stop drag, unparents and fixes position of child nodes
+        scene = self.scene()
+        old_pos = item.scenePos()
+        self.temp_item_list.append(item) # hack to avoid item to be deleted, seems to work
+        item.setParentItem( None )
+        #scene.addItem(item)
+        item.setPos( old_pos )
+
+    def delete(self):
+        scene = self.scene()
+        scene.removeItem(self)
+
+    def toggle_pin(self):
+        if self.is_pinned:
+            self.is_pinned = False
+            self.pin_button.setIcon(self.pin_icon_off)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        else:
+            self.is_pinned = True
+            self.pin_button.setIcon(self.pin_icon_on)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+
+    def create_pin(self):
+        self.pin_button = QToolButton()
+        self.pin_button.setFixedSize(24,24)
+        self.pin_button.setIcon(self.pin_icon_off)
+        self.pin_button.setIconSize(QSize(20,20))
+        self.pin_button.setAttribute(Qt.WA_NoSystemBackground)
+        self.pin_button.released.connect(self.toggle_pin)
+        self.is_pinned = False
+
+        pxy = QGraphicsProxyWidget(self)
+        pxy.setWidget( self.pin_button )
+        pxy.setPos( self.label_rect.x()-24, self.label_rect.y() )
 
     def set_label(self, label):
         self.label = label
         self.label_rect = QFontMetricsF(QFont()).boundingRect(label)
-        self.label_rect.adjust(0, -20, 0, 0)
+        self.label_rect.adjust(15, -20, 0, 0)
 
         if not self.Qlabel:
             self.Qlabel = QLabel(self.label)
@@ -124,11 +173,26 @@ class NEPComment(QGraphicsItem):
             self.Qlabel.setVisible(True)
 
     def mousePressEvent(self, event):
+        ''' Start dragging - check overlapping nodes and parent to itself.
+        Ignores if node is pinned.
+        '''
         # closes edit if a click is detected (trying to drag)
         super().mousePressEvent(event)
         if self.label_text_edit:
             if self.label_text_edit.isVisible():
                 self.cancel_update_label()
+
+        if self.is_pinned: return
+
+        children = self.childItems() # cache
+        colliding_items = self.collidingItems()
+        if colliding_items:
+            for item in colliding_items:
+                if type(item) == QGraphicsItem:
+                    if item not in children:
+                        if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
+                            self.add_child(item)
+
 
     def drag_update_hack(self):
         children = self.childItems()
@@ -137,15 +201,38 @@ class NEPComment(QGraphicsItem):
                 ch.moveBy(0.000001, 0)
 
     def mouseMoveEvent(self, event):
-        # hack to update connections when dragging
+        ''' Dragging code - hack to update connections when dragging
+        Ignores if node is pinned.
+        '''
         super().mouseMoveEvent(event)
+        if self.is_pinned: return
+        
         self.drag_update_hack()
 
     def mouseReleaseEvent(self, event):
-        # hack to update connections when stop dragging
+        ''' Dragging code - hack to update connections when dragging
+        Ignores if node is pinned.
+        '''
         super().mouseReleaseEvent(event)
+        if self.is_pinned: return
+
+        
         self.drag_update_hack()
 
+        children = self.childItems()
+        if children:
+            # hack to refresh C++ objects everytime children count change
+            # so we're not pointing to objects that got deleted
+            while True:
+                children = self.childItems()
+                can_exit = True
+                for item in children:
+                    if type(item) == QGraphicsItem:
+                        self.remove_child(item)
+                        can_exit = False
+                        break
+                if can_exit:
+                    break
 
     def set_bg_color(self, *args):
         new_color = QColorDialog.getColor()
@@ -166,7 +253,7 @@ class NEPComment(QGraphicsItem):
                 self.update_label_color(self.bg_color)
 
         return QGraphicsItem.itemChange(self, change, value)
-        
+
 
     
 
@@ -196,60 +283,61 @@ class NodeEditorPlus():
         # change background color for selected comment(s)
         elif key_pressed == "B":
             self.color_comment()
+        elif key_pressed == "Del":
+            self.delete_comment()
+        elif key_pressed == "T":
+            scene = getCurrentView(self.node_editor)
+            sel = scene.selectedItems()
+            print(sel[0].parentItem())
 
+    def get_selected_comments(self):
+        selected_items = []
+        scene = getCurrentView(self.node_editor)
+        if scene:
+            sel = scene.selectedItems()
+            if sel:
+                selected_items = sel
+        return selected_items
 
     def color_comment(self):
-        scene = getCurrentView(self.node_editor)
-        if scene:
-            sel = scene.selectedItems()
-            if sel:
-                for item in sel:
-                    if type(item) == NEPComment:
-                        item.set_bg_color()
-
+        for item in self.get_selected_comments():
+            if type(item) == NEPComment:
+                item.set_bg_color()
 
     def rename_comment(self):
-        scene = getCurrentView(self.node_editor)
-        if scene:
-            sel = scene.selectedItems()
-            if sel:
-                # only rename 1 at a time
-                if len(sel) == 1:
-                    if type(sel[0]) == NEPComment:
-                        sel[0].show_rename_edit_line()
+        selected_items = self.get_selected_comments()
+        if selected_items:
+            # only rename 1 at a time
+            if len(selected_items) == 1:
+                if type(selected_items[0]) == NEPComment:
+                    selected_items[0].show_rename_edit_line()
 
-
+    def delete_comment(self):
+        for item in self.get_selected_comments():
+            if type(item) == NEPComment:
+                item.delete()
 
     def create_comment_on_selection(self):
-        scene = getCurrentView(self.node_editor)
-        if scene:
-            sel = scene.selectedItems()
-            if sel:
-                items_list = []
-                for item in sel:
-                    if type(item) == QGraphicsItem:
-                        items_list.append(item)
-                if items_list:
-                    final_rect = None
-                    for item in items_list:
-                        if not final_rect:
-                            final_rect = item.sceneBoundingRect()
-                        else:
-                            final_rect = final_rect.united(item.sceneBoundingRect())
+        selected_items = self.get_selected_comments()
+        if selected_items:
+            items_list = []
+            for item in selected_items:
+                if type(item) == QGraphicsItem:
+                    items_list.append(item)
+            if items_list:
+                final_rect = None
+                for item in items_list:
+                    if not final_rect:
+                        final_rect = item.sceneBoundingRect()
+                    else:
+                        final_rect = final_rect.united(item.sceneBoundingRect())
 
-                    if final_rect:
-                        com = NEPComment("This is a new comment", final_rect)
-                        scene.addItem(com)
-                        com.setPos( final_rect.x(), final_rect.y() )
-                        
-                        # parent them to new comment
-                        for item in items_list:
-                            old_pos = item.scenePos()
-                            item.setParentItem(com)
-                            item.setPos( com.sceneTransform().inverted()[0].map(old_pos) )
-                            
-                            # test to see if we can store info inside the nodes
-                            item.my_parent = com.label
+                if final_rect:
+                    com   = NEPComment("This is a new comment", final_rect)
+                    scene = getCurrentView(self.node_editor)
+                    scene.addItem(com)
+                    com.setPos( final_rect.x(), final_rect.y() )
+
 
 #nep = NodeEditorPlus()
 #nep.ui()
