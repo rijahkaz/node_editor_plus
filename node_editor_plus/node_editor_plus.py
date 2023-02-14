@@ -265,6 +265,7 @@ class NodeEditorPlus():
         form = cmds.formLayout()
         p = cmds.scriptedPanel(type="nodeEditorPanel")
         self.node_editor = p+"NodeEditorEd"
+        print (self.node_editor)
         cmds.formLayout(form, edit=True, attachForm=[(p,s,0) for s in ("top","bottom","left","right")])
         cmds.showWindow()
         
@@ -285,10 +286,7 @@ class NodeEditorPlus():
             self.color_comment()
         elif key_pressed == "Del":
             self.delete_comment()
-        elif key_pressed == "T":
-            scene = getCurrentView(self.node_editor)
-            sel = scene.selectedItems()
-            print(sel[0].parentItem())
+
 
     def get_selected_comments(self):
         selected_items = []
