@@ -21,12 +21,11 @@ class RenameLabelFilter(QObject):
 
     def eventFilter(self, widget, event):
         if event.type() == QEvent.Type.KeyPress:
-            if   event.key() == 16777216: # ESC
+            if   event.key() == Qt.Key_Escape:
                 self.item.cancel_update_label()
-            elif event.key() == 16777220: # Enter
+            elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
                 self.item.label_text_edit.setVisible(False)
-            elif event.key() == 16777221: # Enter Numpad
-                self.item.label_text_edit.setVisible(False)
+
         return False
 
 class LabelFilter(QObject):
@@ -284,8 +283,10 @@ class NodeEditorPlus():
         # change background color for selected comment(s)
         elif key_pressed == "B":
             self.color_comment()
-        elif key_pressed == "Del":
+        elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_comment()
+
+        print(key_pressed)
 
 
     def get_selected_comments(self):
