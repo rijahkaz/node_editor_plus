@@ -28,6 +28,63 @@ class RenameLabelFilter(QObject):
 
         return False
 
+class AlignNodes():
+    def __init__(self):
+        pass
+
+    def getFullLength(self, axis, graphicsList):
+        fullLength = 0
+        for node in graphicsList:
+            if axis == "x":
+                fullLength = fullLength + node.boundingRect().width()
+            elif axis == "y":
+                fullLength = fullLength + node.boundingRect().height()
+    
+        return fullLength
+
+    def getInitialNodeValue(self, axis, graphicsList):
+        initialValue = 0
+        firstNode = graphicsList[0]
+        if axis == "x":
+            initialValue = firstNode.pos().x()
+        elif axis == "y":
+            initialValue = firstNode.pos().y()
+    
+        return initialValue
+    
+    def horizontalAlign(self, graphicsList):
+        xValue = 0
+        yValue = 0
+        #Get Y Value: Will be the same for all.
+        yValue = self.getInitialNodeValue("y", graphicsList)
+        #Get full length of nodes selected.
+        fLen = self.getFullLength("x", graphicsList)
+        #Get gap between Nodes.
+        spaceBetween = fLen / len(graphicsList) - 1
+        #Get X position for the first node.
+        xValue = self.getInitialNodeValue("x", graphicsList)
+        #Ititate through list and asign values.
+        for node in graphicsList:
+            node.setPos(xValue, yValue)
+            #Here I add the width because I want a wider gap between them horizontal
+            xValue += node.boundingRect().width() + spaceBetween 
+    def verticalAlign(self, graphicsList):
+        xValue = 0
+        yValue = 0
+        #Get X Value: Will be the same for all.
+        xValue = self.getInitialNodeValue("x", graphicsList)
+        #Get full length of nodes selected.
+        fLen = self.getFullLength("y", graphicsList)
+        #Get gap between Nodes.
+        spaceBetween = fLen / len(graphicsList) - 1
+        #Get Y position for the first node.
+        yValue = self.getInitialNodeValue("y", graphicsList)
+        for node in graphicsList:
+            node.setPos(xValue, yValue)
+            #Here I did not add the height because they would be too far apart.
+            yValue += spaceBetween
+       
+
 class LabelFilter(QObject):
     def __init__(self, item):
         super().__init__()
@@ -274,6 +331,7 @@ class NodeEditorPlus():
         ''' Detects keypresses'''
         node_editor = args[0]
         key_pressed = args[1]
+        mods = cmds.getModifiers()
         # create comment on selected nodes
         if key_pressed == "C":
             self.create_comment_on_selection()
@@ -283,10 +341,29 @@ class NodeEditorPlus():
         # change background color for selected comment(s)
         elif key_pressed == "B":
             self.color_comment()
+        # delete selected comment(s)
         elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_comment()
-
+        # align selected node(s) horizontally
+        elif (mods & 1) > 0 and key_pressed == "A": 
+            self.align_nodes("horizontal")
+            return True
+        # align selected node(s) vertically
+        elif (mods & 1) > 0 and key_pressed == "V": 
+           self.align_nodes("vertical")
+           return True
         print(key_pressed)
+
+    def align_nodes(self, alignIn):
+        nodeAl = AlignNodes()
+        if alignIn == "vertical":
+            #print(nodeAl, alignIn)
+            nodeAl.verticalAlign(self.get_selected_comments())
+            cmds.nodeEditor( self.node_editor, edit=True, frameAll=True)
+        if alignIn == "horizontal":
+            #print(nodeAl, alignIn)
+            nodeAl.horizontalAlign(self.get_selected_comments())
+            cmds.nodeEditor( self.node_editor, edit=True, frameAll=True)
 
 
     def get_selected_comments(self):
