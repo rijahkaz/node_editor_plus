@@ -4,6 +4,8 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
+VERSION = "0.1.0"
+
 def getCurrentView(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
     if ctrl is None:
@@ -101,7 +103,8 @@ class NEPComment(QGraphicsItem):
     Qlabel = None
     content_rect    = None
     label_text_edit = None
-    bounding_rect   = None # full bounds
+    manhattanLength = 0
+    is_showing_resize_cursor = False
     is_pinned = False
     pin_icon_off = None
     pin_icon_on  = None
@@ -110,18 +113,22 @@ class NEPComment(QGraphicsItem):
     temp_item_list = []
     def __init__(self, label, content_rect):
         super().__init__()
+        self.pin_icon_off = QIcon(":/pinItem.png")
+        self.pin_icon_on  = QIcon(":/pinON.png")
+
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
-        self.bounding_rect = self.content_rect
+        self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
         self.set_label(label)
 
-        self.pin_icon_off = QIcon(":/pinItem.png")
-        self.pin_icon_on  = QIcon(":/pinON.png")
-        self.create_pin()
+        self.create_pin_icon()
 
         self.bg_color = self.COLOR_DEFAULT
+        self.setAcceptHoverEvents(True)
+
+
 
     def add_child(self, item):
         # On start drag, parents and fixes position of overlapping nodes
@@ -152,11 +159,11 @@ class NEPComment(QGraphicsItem):
             self.pin_button.setIcon(self.pin_icon_on)
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
-    def create_pin(self):
+    def create_pin_icon(self):
         self.pin_button = QToolButton()
         self.pin_button.setFixedSize(24,24)
         self.pin_button.setIcon(self.pin_icon_off)
-        self.pin_button.setIconSize(QSize(20,20))
+        self.pin_button.setIconSize(QSize(256,256))
         self.pin_button.setAttribute(Qt.WA_NoSystemBackground)
         self.pin_button.released.connect(self.toggle_pin)
         self.is_pinned = False
@@ -164,6 +171,8 @@ class NEPComment(QGraphicsItem):
         pxy = QGraphicsProxyWidget(self)
         pxy.setWidget( self.pin_button )
         pxy.setPos( self.label_rect.x()-24, self.label_rect.y() )
+
+
 
     def set_label(self, label):
         self.label = label
@@ -182,7 +191,7 @@ class NEPComment(QGraphicsItem):
             self.Qlabel.setText(self.label)
         
     def boundingRect(self):
-        return self.bounding_rect
+        return self.content_rect
 
     def paint(self, painter, option, widget):
         if self.isSelected():
@@ -191,7 +200,7 @@ class NEPComment(QGraphicsItem):
             pen      = QPen(Qt.black, 2)
 
         path = QPainterPath()
-        path.addRoundedRect(self.content_rect, 20, 20)
+        path.addRoundedRect(self.content_rect, 10, 10)
         
         painter.setPen(pen)
         painter.fillPath(path, self.bg_color )
@@ -232,6 +241,7 @@ class NEPComment(QGraphicsItem):
         ''' Start dragging - check overlapping nodes and parent to itself.
         Ignores if node is pinned.
         '''
+        if self.is_pinned: return
         # closes edit if a click is detected (trying to drag)
         super().mousePressEvent(event)
         if self.label_text_edit:
@@ -260,18 +270,28 @@ class NEPComment(QGraphicsItem):
         ''' Dragging code - hack to update connections when dragging
         Ignores if node is pinned.
         '''
-        super().mouseMoveEvent(event)
-        if self.is_pinned: return
-        
-        self.drag_update_hack()
+        # calculate resize first
+        if self.is_showing_resize_cursor:
+            self.resize_comment( event )
+        else:
+            # if it's not resizing then it's moving
+            if self.is_pinned: return
+
+            super().mouseMoveEvent(event)
+            self.drag_update_hack()
 
     def mouseReleaseEvent(self, event):
         ''' Dragging code - hack to update connections when dragging
         Ignores if node is pinned.
         '''
         super().mouseReleaseEvent(event)
-        if self.is_pinned: return
 
+        # if released while dragging, update manhattanlength
+        if self.is_showing_resize_cursor:
+            self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
+
+        # don't move update anything if pinned, can't drag anyway
+        if self.is_pinned: return
         
         self.drag_update_hack()
 
@@ -289,6 +309,33 @@ class NEPComment(QGraphicsItem):
                         break
                 if can_exit:
                     break
+
+    def resize_comment(self, event):
+        self.prepareGeometryChange()
+        self.content_rect.setWidth(event.pos().x()+10) # hardcoded offset
+        self.content_rect.setHeight(event.pos().y()+10)
+
+
+    def show_resize_cursor(self):
+        self.is_showing_resize_cursor = True
+        QApplication.setOverrideCursor(QCursor(Qt.SizeFDiagCursor))
+
+    def hide_resize_cursor(self):
+        QApplication.restoreOverrideCursor()
+        self.is_showing_resize_cursor = False
+
+    def hoverMoveEvent(self, event):
+        if event.pos().manhattanLength() > self.manhattanLength - 12:
+            if not self.is_showing_resize_cursor:
+                self.show_resize_cursor()
+        else:
+            if self.is_showing_resize_cursor:
+                self.hide_resize_cursor()
+
+    def hoverLeaveEvent(self, event):
+        if self.is_showing_resize_cursor:
+            self.hide_resize_cursor()
+
 
     def set_bg_color(self, *args):
         new_color = QColorDialog.getColor()
@@ -317,11 +364,11 @@ class NodeEditorPlus():
     node_editor = None
 
     def ui(self):
-        cmds.window(title="Node Editor Plus")
+        cmds.window(title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
         form = cmds.formLayout()
         p = cmds.scriptedPanel(type="nodeEditorPanel")
         self.node_editor = p+"NodeEditorEd"
-        print (self.node_editor)
+
         cmds.formLayout(form, edit=True, attachForm=[(p,s,0) for s in ("top","bottom","left","right")])
         cmds.showWindow()
         
