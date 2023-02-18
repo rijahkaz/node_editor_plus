@@ -4,9 +4,9 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
-def getCurrentView(node_editor):
+def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
     if ctrl is None:
         raise RuntimeError("Node editor is not open")
@@ -15,6 +15,10 @@ def getCurrentView(node_editor):
     graph_view = stack.currentWidget().findChild(QGraphicsView)
     scene = graph_view.scene()
     return scene
+
+def getCurrentView(node_editor):
+    scene = getCurrentScene(node_editor)
+    return scene.views()[0]
 
 class RenameLabelFilter(QObject):
     def __init__(self, item):
@@ -370,6 +374,7 @@ class NodeEditorPlus():
         self.node_editor = p+"NodeEditorEd"
 
         cmds.formLayout(form, edit=True, attachForm=[(p,s,0) for s in ("top","bottom","left","right")])
+        self.create_sidebar()
         cmds.showWindow()
         
         cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
@@ -378,10 +383,14 @@ class NodeEditorPlus():
         ''' Detects keypresses'''
         node_editor = args[0]
         key_pressed = args[1]
+        ignore_keys_list = ["Q", "E", "R", "A", "O", ";"]
+
+        print(key_pressed)
+
         mods = cmds.getModifiers()
         # create comment on selected nodes
         if key_pressed == "C":
-            self.create_comment_on_selection()
+            self.create_comment()
         # rename selected comment
         elif key_pressed == "F2":
             self.rename_comment()
@@ -399,7 +408,50 @@ class NodeEditorPlus():
         elif (mods & 1) > 0 and key_pressed == "V": 
            self.align_nodes("vertical")
            return True
-        print(key_pressed)
+        # remove errors trying to build MMs
+        elif key_pressed in ignore_keys_list :
+            return True
+
+    def create_sidebar(self):
+        ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
+        nodeEdPane = wrapInstance(int(ctrl), QWidget)
+        nodeEdPaneParent = nodeEdPane.parent().parent().objectName()
+        parent_ctrl = OpenMayaUI.MQtUtil.findControl(nodeEdPaneParent)
+        original_widget = wrapInstance(int(parent_ctrl), QWidget)
+        original_layout = original_widget.layout()
+
+        self.horizontal_main_layout = QHBoxLayout()
+        original_layout.insertLayout( 0, self.horizontal_main_layout )
+
+        # populate with TEMP buttons
+        self.left_sidebar_layout = QVBoxLayout()
+        self.horizontal_main_layout.addLayout(self.left_sidebar_layout)
+
+        tempQW = QWidget()
+        b = QPushButton()
+        b.setToolTip("Create New Comment")
+        b.released.connect(self.create_comment)
+        icon = tempQW.style().standardIcon( getattr(QStyle, "SP_ArrowBack") )
+        b.setIcon(icon)
+        b.setIconSize( QSize(40,40) )
+        self.left_sidebar_layout.addWidget(b)
+
+        b = QPushButton()
+        b.setToolTip("Change Comment Color")
+        b.released.connect(self.color_comment)
+        icon = tempQW.style().standardIcon( getattr(QStyle, "SP_ArrowDown") )
+        b.setIcon(icon)
+        b.setIconSize( QSize(40,40) )
+        self.left_sidebar_layout.addWidget(b)
+        
+
+        self.left_sidebar_layout.addStretch() # make empty bottom stretch
+
+        # re-add the Node Editor to our new layout alongside the toolbar
+        ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
+        nodeEdPane = wrapInstance(int(ctrl), QWidget)
+        self.horizontal_main_layout.addWidget(nodeEdPane)
+
 
     def align_nodes(self, alignIn):
         nodeAl = AlignNodes()
@@ -415,7 +467,7 @@ class NodeEditorPlus():
 
     def get_selected_comments(self):
         selected_items = []
-        scene = getCurrentView(self.node_editor)
+        scene = getCurrentScene(self.node_editor)
         if scene:
             sel = scene.selectedItems()
             if sel:
@@ -440,7 +492,7 @@ class NodeEditorPlus():
             if type(item) == NEPComment:
                 item.delete()
 
-    def create_comment_on_selection(self):
+    def create_comment(self):
         selected_items = self.get_selected_comments()
         if selected_items:
             items_list = []
@@ -457,9 +509,18 @@ class NodeEditorPlus():
 
                 if final_rect:
                     com   = NEPComment("This is a new comment", final_rect)
-                    scene = getCurrentView(self.node_editor)
+                    scene = getCurrentScene(self.node_editor)
                     scene.addItem(com)
                     com.setPos( final_rect.x(), final_rect.y() )
+        else:
+            default_rect = QRectF(0, 0, 150, 50)
+            com   = NEPComment("This is a new comment", default_rect)
+            scene = getCurrentScene(self.node_editor)
+            scene.addItem(com)
+            view = getCurrentView(self.node_editor)
+            center = view.mapToScene(view.viewport().rect().center())
+            com.setPos( center.x()-75, center.y()-25 )
+
 
 
 #nep = NodeEditorPlus()
