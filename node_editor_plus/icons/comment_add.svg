@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="33.9524mm"
+   height="39.791565mm"
+   viewBox="0 0 33.9524 39.791565"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   sodipodi:docname="inkporter-svg-ry2n6ek7.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:pageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="false"
+     inkscape:document-units="px"
+     showgrid="false"
+     borderlayer="true"
+     inkscape:zoom="0.5"
+     inkscape:cx="112"
+     inkscape:cy="233"
+     inkscape:window-width="1920"
+     inkscape:window-height="1027"
+     inkscape:window-x="1908"
+     inkscape:window-y="1102"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1165"
+     inkscape:snap-bbox="true" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:groupmode="layer"
+     id="g1480"
+     inkscape:label="CommentAdd"
+     style="display:inline"
+     transform="translate(-3.0238,-0.10421777)">
+    <g
+       id="comment_add">
+      <g
+         id="g1478">
+        <rect
+           style="fill:#bdbdbd;fill-opacity:1;stroke:#3a3a3a;stroke-width:1.5875;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+           id="rect1472"
+           width="23.095119"
+           height="38.204063"
+           x="3.8175499"
+           y="0.89796776"
+           ry="2.5730395"
+           rx="2.5730395" />
+        <path
+           id="rect5771"
+           style="fill:#48aab5;fill-opacity:1;stroke:#3a3a3a;stroke-width:0.79375;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none"
+           d="m 24.886514,8.306915 8.325073,8.32559 3.367753,3.367237 -3.367753,3.367753 -8.325073,8.325589 -3.367755,-3.367752 8.325075,-8.325074 -8.325075,-8.325589 z" />
+      </g>
+    </g>
+  </g>
+</svg>
