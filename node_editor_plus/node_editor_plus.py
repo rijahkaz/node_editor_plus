@@ -1,11 +1,11 @@
 import os
-from maya import cmds, OpenMayaUI
+from maya import mel, cmds, OpenMayaUI
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
@@ -372,26 +372,35 @@ class NodeEditorPlus():
     def __init__(self):
         self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
 
-    def add_keypress_callback(self):
-        cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
+    def tab_change_callback(self):
+        # intercept for our needs then call original callback
+        parent   = cmds.setParent(query=True)
+        showMenu = None # this doesn't seem it's being used at all in the function
+        mel.eval("nodeEdUpdateUIByTab \"{}\" \"{}\"".format(self.node_editor, showMenu))
+
+    def settings_changed_callback(self, *args):
+        # intercept for our needs then call original callback
+        #print(cmds.nodeEditor(self.node_editor, query=True, stateString=True))
+        mel.eval("nodeEdSyncControls \"{}\"".format(args[0]))
 
     def ui(self):
         win = cmds.window(title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
         form = cmds.formLayout()
         p = cmds.scriptedPanel(type="nodeEditorPanel")
         self.node_editor = p+"NodeEditorEd"
-
         cmds.formLayout(form, edit=True, attachForm=[(p,s,0) for s in ("top","bottom","left","right")])
+
+        # our upgrade to the Node Editor :3
         self.create_sidebar()
 
-        # deals with main tab
+        # this never worked, I'm disabling it
         cmds.nodeEditor(self.node_editor, edit=True, allowTabTearoff=False)
-        cmds.nodeEditor(self.node_editor, edit=True, renameTab=(0, "MAIN GRAPH"))
+        # intercept hotkeys for our functionality
         cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
-
-        # deals with extra tabs
-        cmds.nodeEditor(self.node_editor, edit=True, tabChangeCommand=self.add_keypress_callback)
-
+        # in case we need to intercept these too, but atm it's not doing anything (v0.1.4)
+        cmds.nodeEditor(self.node_editor, edit=True, tabChangeCommand=self.tab_change_callback)
+        # intercept original callbacks, there are important so we can apply grid snapping for example
+        cmds.nodeEditor(self.node_editor, edit=True, settingsChangedCallback=self.settings_changed_callback)
 
         cmds.showWindow(win)
 
@@ -401,7 +410,6 @@ class NodeEditorPlus():
         ''' Detects keypresses'''
         node_editor = args[0]
         key_pressed = args[1]
-        ignore_keys_list = ["Q", "E", "R", "A", "O", ";"]
 
         print(key_pressed)
 
@@ -409,12 +417,15 @@ class NodeEditorPlus():
         # create comment on selected nodes
         if key_pressed == "C":
             self.create_comment()
+            return True
         # rename selected comment
         elif key_pressed == "F2":
             self.rename_comment()
+            return True
         # change background color for selected comment(s)
         elif key_pressed == "B":
             self.color_comment()
+            return True
         # delete selected comment(s)
         elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_comment()
@@ -426,9 +437,18 @@ class NodeEditorPlus():
         elif (mods & 1) > 0 and key_pressed == "V": 
            self.align_nodes("vertical")
            return True
-        # remove errors trying to build MMs
-        elif key_pressed in ignore_keys_list :
+
+        # remake of original hotkeys to make them work with our custom nodes
+        # ToDo: make them calculate our nodes to frame 
+        elif key_pressed == "A":
+            cmds.nodeEditor(node_editor, edit=True, frameAll=True)
             return True
+        elif key_pressed == "F":
+            cmds.nodeEditor(node_editor, edit=True, frameSelected=True)
+            return True
+
+        # in the end if we didn't intercept a key, run original callback
+        mel.eval("nodeEdKeyPressCommand \"{}\" \"{}\"".format(node_editor, key_pressed))
 
     def toolbar_add_button(self, toolbar, tooltip, icon_name, command):
         a = QAction(icon=QIcon(os.path.join(self.icons_path, icon_name)), text="", parent=toolbar)
@@ -546,8 +566,3 @@ class NodeEditorPlus():
             view = getCurrentView(self.node_editor)
             center = view.mapToScene(view.viewport().rect().center())
             com.setPos( center.x()-75, center.y()-25 )
-
-
-
-#nep = NodeEditorPlus()
-#nep.ui()
