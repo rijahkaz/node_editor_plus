@@ -5,7 +5,7 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
@@ -372,17 +372,30 @@ class NodeEditorPlus():
     def __init__(self):
         self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
 
+    def add_keypress_callback(self):
+        cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
+
     def ui(self):
-        cmds.window(title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
+        win = cmds.window(title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
         form = cmds.formLayout()
         p = cmds.scriptedPanel(type="nodeEditorPanel")
         self.node_editor = p+"NodeEditorEd"
 
         cmds.formLayout(form, edit=True, attachForm=[(p,s,0) for s in ("top","bottom","left","right")])
         self.create_sidebar()
-        cmds.showWindow()
-        
+
+        # deals with main tab
+        cmds.nodeEditor(self.node_editor, edit=True, allowTabTearoff=False)
+        cmds.nodeEditor(self.node_editor, edit=True, renameTab=(0, "MAIN GRAPH"))
         cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
+
+        # deals with extra tabs
+        cmds.nodeEditor(self.node_editor, edit=True, tabChangeCommand=self.add_keypress_callback)
+
+
+        cmds.showWindow(win)
+
+        
 
     def comment_key_callback(self, *args):
         ''' Detects keypresses'''
