@@ -7,7 +7,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -88,11 +88,18 @@ class AlignNodes():
 class NodeEditorPlus():
     node_editor = None
     icons_path = ""
-
+    _drag_manager = None
+    grid_snap = False
     def __init__(self):
+        # manager to propagate drags between our custom nodes
+        self._drag_manager = custom_nodes.NEPDragManager()
         self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
 
     def tab_change_callback(self):
+        """ force new tabs to also recognize our hotkeys, this is weird since there is only 1 node editor
+        but hotkeys only work in the first tab otherwise """
+        cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
+
         # intercept for our needs then call original callback
         parent   = cmds.setParent(query=True)
         showMenu = None # this doesn't seem it's being used at all in the function
@@ -101,6 +108,7 @@ class NodeEditorPlus():
     def settings_changed_callback(self, *args):
         # intercept for our needs then call original callback
         #print(cmds.nodeEditor(self.node_editor, query=True, stateString=True))
+        self.grid_snap = cmds.nodeEditor(self.node_editor, query=True, gridSnap=True)
         mel.eval("nodeEdSyncControls \"{}\"".format(args[0]))
 
     def close_all_node_editors(self):
@@ -252,9 +260,17 @@ class NodeEditorPlus():
         return selected_items
 
     def color_comment(self):
-        for item in self.get_selected_comments():
-            if type(item) == custom_nodes.NEPComment:
-                item.set_bg_color()
+        selected_items = self.get_selected_comments()
+        if selected_items:
+            valid_comment_nodes = []
+            for item in selected_items:
+                if type(item) == custom_nodes.NEPComment:
+                    valid_comment_nodes.append(item)
+
+            if valid_comment_nodes:
+                new_color = QColorDialog.getColor()
+                for item in valid_comment_nodes:
+                    item.set_bg_color(new_color)
 
     def rename_comment(self):
         selected_items = self.get_selected_comments()
@@ -290,7 +306,7 @@ class NodeEditorPlus():
                     else:
                         final_rect = final_rect.united(item.sceneBoundingRect())
                 if final_rect:
-                    com   = custom_nodes.NEPComment("", final_rect)
+                    com   = custom_nodes.NEPComment("", final_rect, self)
                     scene.addItem(com)
                     com.setPos( final_rect.x(), final_rect.y() )
         else:
@@ -298,7 +314,7 @@ class NodeEditorPlus():
             if not scene.items():
                 cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
             default_rect = QRectF(0, 0, 150, 50)
-            com   = custom_nodes.NEPComment("", default_rect)
+            com   = custom_nodes.NEPComment("", default_rect, self)
             scene.addItem(com)
             view = getCurrentView(self.node_editor)
             center = view.mapToScene(view.viewport().rect().center())

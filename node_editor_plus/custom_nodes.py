@@ -5,6 +5,7 @@ from PySide2.QtCore import *
 # color constants
 COLOR_DEFAULT  = QColor(255,255,255,50)
 COLOR_SELECTED = QColor(67, 252, 162, 255)
+GRID_SIZE = 30 # eyeballed for snapping
 
 class NEPRenameLabelFilter(QObject):
     # checks inputs during rename of a comment label
@@ -34,6 +35,7 @@ class NEPLabelFilter(QObject):
 
 class NEPComment(QGraphicsItem):
     # Our new brand Comment class
+    _NEP = None # reference to our Node Editor Plus class
     label_rect = None
     label  = ""
     Qlabel = None
@@ -45,8 +47,9 @@ class NEPComment(QGraphicsItem):
     pin_icon_off = None
     pin_icon_on  = None
     temp_item_list = []
-    def __init__(self, label, content_rect):
+    def __init__(self, label, content_rect, NEP):
         super().__init__()
+        self._NEP = NEP
         self.pin_icon_off = QIcon(":/pinItem.png")
         self.pin_icon_on  = QIcon(":/pinON.png")
 
@@ -173,13 +176,17 @@ class NEPComment(QGraphicsItem):
             self.label_text_edit.setVisible(False)
             self.Qlabel.setVisible(True)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event, passive=False):
         ''' Start dragging - check overlapping nodes and parent to itself.
         Ignores if node is pinned.
         '''
+        if not passive:
+            self._NEP._drag_manager.start_drag(caller=self, scene=self.scene(), event=event)
+
         if self.is_pinned: return
-        # closes edit if a click is detected (trying to drag)
         super().mousePressEvent(event)
+
+        # closes edit if a click is detected (trying to drag)
         if self.label_text_edit:
             if self.label_text_edit.isVisible():
                 self.cancel_update_label()
@@ -210,19 +217,24 @@ class NEPComment(QGraphicsItem):
         if self.is_showing_resize_cursor:
             self.resize_comment( event )
         else:
+            self._NEP._drag_manager.mid_drag()
+
             # if it's not resizing then it's moving
             if self.is_pinned: return
 
             super().mouseMoveEvent(event)
             self.drag_update_hack()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event, passive=None):
         ''' Dragging code - hack to update connections when dragging
         Ignores if node is pinned.
         '''
+        if not passive:
+            self._NEP._drag_manager.stop_drag(event=event)
+
         super().mouseReleaseEvent(event)
 
-        # if released while dragging, update manhattanlength
+        # if released while resizing, update manhattanlength
         if self.is_showing_resize_cursor:
             self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
 
@@ -273,8 +285,9 @@ class NEPComment(QGraphicsItem):
             self.hide_resize_cursor()
 
 
-    def set_bg_color(self, *args):
-        new_color = QColorDialog.getColor()
+    def set_bg_color(self, new_color=None):
+        if not new_color:
+            new_color = QColorDialog.getColor()
         if new_color.isValid():
             new_color.setAlpha(50)
             self.bg_color = new_color
@@ -290,5 +303,43 @@ class NEPComment(QGraphicsItem):
                 self.update_label_color(COLOR_SELECTED)
             else:
                 self.update_label_color(self.bg_color)
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            if self._NEP.grid_snap:
+                # eyeballed values that looked right-ish
+                x = (round(value.x()/GRID_SIZE)*GRID_SIZE)-14
+                y = (round(value.y()/GRID_SIZE)*GRID_SIZE)-14
+                return( QPointF(x,y) )
 
         return QGraphicsItem.itemChange(self, change, value)
+
+
+class NEPDragManager():
+    # helper to propagate events to all comments nodes being dragged
+    items_being_dragged = []
+    def start_drag(self, caller, scene, event):
+        # propagates mousePress events to all comments that are not the current one
+        self.items_being_dragged = []
+        selected_items = scene.selectedItems()
+        if selected_items:
+            for item in selected_items:
+                # conditions
+                if type(item) == NEPComment: # type NEPComment
+                    if not item == caller: # not the caller
+                        self.items_being_dragged.append(item)
+
+        if self.items_being_dragged:
+            for item in self.items_being_dragged:
+                item.mousePressEvent(event, passive=True)
+
+    def mid_drag(self):
+        # propagate hack to update connections positions
+        if self.items_being_dragged:
+            for item in self.items_being_dragged:
+                item.drag_update_hack()
+
+    def stop_drag(self, event):
+        # propagates mouseRelease to all comments that were being dragged and clears list
+        if self.items_being_dragged:
+            for item in self.items_being_dragged:
+                item.mouseReleaseEvent(event, passive=True)
+        self.items_being_dragged = []
