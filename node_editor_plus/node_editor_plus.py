@@ -1,10 +1,11 @@
+import os
 from maya import cmds, OpenMayaUI
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
@@ -366,6 +367,10 @@ class NEPComment(QGraphicsItem):
 
 class NodeEditorPlus():
     node_editor = None
+    icons_path = ""
+
+    def __init__(self):
+        self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
 
     def ui(self):
         cmds.window(title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
@@ -412,7 +417,15 @@ class NodeEditorPlus():
         elif key_pressed in ignore_keys_list :
             return True
 
+    def toolbar_add_button(self, toolbar, tooltip, icon_name, command):
+        a = QAction(icon=QIcon(os.path.join(self.icons_path, icon_name)), text="", parent=toolbar)
+        a.setToolTip(tooltip) # hovering tooltip
+        a.setStatusTip("Node Editor Plus: {}".format(tooltip)) # Maya's help line description
+        a.triggered.connect(command)
+        toolbar.addAction( a )
+
     def create_sidebar(self):
+        # Reparents old NodeEditor into a new horizontal layout so we can add a sidebar to the window
         ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
         nodeEdPane = wrapInstance(int(ctrl), QWidget)
         nodeEdPaneParent = nodeEdPane.parent().parent().objectName()
@@ -420,34 +433,34 @@ class NodeEditorPlus():
         original_widget = wrapInstance(int(parent_ctrl), QWidget)
         original_layout = original_widget.layout()
 
+        # create our new layout and add it
         self.horizontal_main_layout = QHBoxLayout()
         original_layout.insertLayout( 0, self.horizontal_main_layout )
 
-        # populate with TEMP buttons
-        self.left_sidebar_layout = QVBoxLayout()
-        self.horizontal_main_layout.addLayout(self.left_sidebar_layout)
+        # create the left side toolbar 
+        self.left_toolbar = QToolBar()
+        self.left_toolbar.setOrientation(Qt.Vertical)
 
-        tempQW = QWidget()
-        b = QPushButton()
-        b.setToolTip("Create New Comment")
-        b.released.connect(self.create_comment)
-        icon = tempQW.style().standardIcon( getattr(QStyle, "SP_ArrowBack") )
-        b.setIcon(icon)
-        b.setIconSize( QSize(40,40) )
-        self.left_sidebar_layout.addWidget(b)
+        # comments buttons
+        self.left_toolbar.addSeparator()
+        self.toolbar_add_button(self.left_toolbar, "Create New Comment",   "comment_add.svg",    self.create_comment)
+        self.toolbar_add_button(self.left_toolbar, "Delete Comment",       "comment_remove.svg", self.delete_comment)
+        self.toolbar_add_button(self.left_toolbar, "Change Comment Color", "comment_color.svg",  self.color_comment)
 
-        b = QPushButton()
-        b.setToolTip("Change Comment Color")
-        b.released.connect(self.color_comment)
-        icon = tempQW.style().standardIcon( getattr(QStyle, "SP_ArrowDown") )
-        b.setIcon(icon)
-        b.setIconSize( QSize(40,40) )
-        self.left_sidebar_layout.addWidget(b)
-        
+        # align buttons
+        self.left_toolbar.addSeparator()
+        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    "")
+        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", "")
+        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", "")
+        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   "")
+        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", "")
+        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  "")
+        self.left_toolbar.addSeparator()
 
-        self.left_sidebar_layout.addStretch() # make empty bottom stretch
+        # add the populated toolbar to the new layout we created
+        self.horizontal_main_layout.addWidget(self.left_toolbar)
 
-        # re-add the Node Editor to our new layout alongside the toolbar
+        # re-add the Node Editor to our new layout
         ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
         nodeEdPane = wrapInstance(int(ctrl), QWidget)
         self.horizontal_main_layout.addWidget(nodeEdPane)
