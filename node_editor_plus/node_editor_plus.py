@@ -1,4 +1,6 @@
-import os
+import os, json
+from functools import partial
+from collections import OrderedDict
 from maya import mel, cmds, OpenMayaUI
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import *
@@ -7,11 +9,12 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
 DEFAULT_HUD_MESSAGE = "Press Tab to create a node"
+NODE_EDITOR_CFG = "MayaNodeEditorPlusSavedTabsInfo"
 
 def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
@@ -123,7 +126,7 @@ class NodeEditorPlus():
     def ui(self):
         self.close_all_node_editors()
 
-        cmds.window(WINDOW_NAME, title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550) )
+        cmds.window(WINDOW_NAME, title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550), closeCommand=self.window_close )
         form = cmds.formLayout()
         p = cmds.scriptedPanel(type="nodeEditorPanel")
         self.node_editor = p+"NodeEditorEd"
@@ -142,6 +145,10 @@ class NodeEditorPlus():
         cmds.nodeEditor(self.node_editor, edit=True, settingsChangedCallback=self.settings_changed_callback)
 
         cmds.showWindow(WINDOW_NAME)
+
+        # hack to not crash Maya, check for other ways
+        QTimer.singleShot(500, self.load_nep_data_from_scene)
+        #print(self.node_editor)
 
         
 
@@ -249,6 +256,8 @@ class NodeEditorPlus():
             nodeAl.horizontalAlign(self.get_selected_comments())
             cmds.nodeEditor( self.node_editor, edit=True, frameAll=True)
 
+    def hide_default_HUD_message(self):
+        cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
 
     def get_selected_comments(self):
         selected_items = []
@@ -312,10 +321,77 @@ class NodeEditorPlus():
         else:
             # if nothing selected and no items in scene, remove the default HUD message
             if not scene.items():
-                cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
+                self.hide_default_HUD_message()
             default_rect = QRectF(0, 0, 150, 50)
             com   = custom_nodes.NEPComment("", default_rect, self)
             scene.addItem(com)
             view = getCurrentView(self.node_editor)
             center = view.mapToScene(view.viewport().rect().center())
             com.setPos( center.x()-75, center.y()-25 )
+
+    def window_close(self):
+        self.save_nep_data_to_scene()
+
+    def save_nep_data_to_scene(self):
+        tabs_dict = OrderedDict()
+        tabs_names_list = []
+
+        ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
+        if ctrl is None:
+            raise RuntimeError("Node editor is not open")
+        nodeEdPane = wrapInstance(int(ctrl), QWidget)
+
+        tabbar = nodeEdPane.findChild(QTabBar)
+        for i in range(tabbar.count()-1): # removes +
+            tabs_names_list.append(tabbar.tabText(i))
+
+        stack = nodeEdPane.findChild(QStackedLayout)
+        for i in range(stack.count()):
+            children = stack.itemAt(i).widget().children()
+            for child in children:
+                if type(child) == QGraphicsView:
+                    valid_items_list = []
+                    for item in child.items():
+                        if type(item) == custom_nodes.NEPComment:
+                            valid_items_list.append(item)
+
+                    tabs_dict[tabs_names_list[i]] = valid_items_list
+
+        dump_dict = {}
+        for tab in tabs_dict:
+            dump_dict[tab] = []
+            for item in tabs_dict[tab]:
+                dump_dict[tab].append( {"label":item.label, "pos":{"x":item.pos().x(), "y":item.pos().y()}, "width":item.content_rect.width(), "height":item.content_rect.height(), "bg_color":item.bg_color.name(), "is_pinned":item.is_pinned} )
+
+        if not cmds.objExists(NODE_EDITOR_CFG):
+            cmds.createNode("network", name=NODE_EDITOR_CFG)
+
+        if not cmds.attributeQuery("NEP_DATA", node=NODE_EDITOR_CFG, exists=True):
+            cmds.addAttr(NODE_EDITOR_CFG, ln="NEP_DATA", dataType="string")
+
+        cmds.setAttr(NODE_EDITOR_CFG+".NEP_DATA", json.dumps(dump_dict), type="string")
+
+    def load_nep_data_from_scene(self):
+        load_dict = {}
+
+        if cmds.objExists(NODE_EDITOR_CFG):
+            load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+'.NEP_DATA'))
+
+        ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
+        if ctrl is None:
+            raise RuntimeError("Node editor is not open")
+        nodeEdPane = wrapInstance(int(ctrl), QWidget)
+
+        tabbar = nodeEdPane.findChild(QTabBar)
+        stack  = nodeEdPane.findChild(QStackedLayout)
+        for i in range(tabbar.count()-1): # removes +
+            tab_name = tabbar.tabText(i)
+            if tab_name in load_dict:
+                stack.setCurrentIndex(i)
+                graph_view = stack.currentWidget().findChild(QGraphicsView)
+                scene = graph_view.scene()
+
+                for comment in load_dict[tab_name]:
+                    com   = custom_nodes.NEPComment(label=comment["label"], content_rect=QRectF(0, 0, comment["width"]-20, comment["height"]-20), NEP=self, bg_color=comment["bg_color"], is_pinned=comment["is_pinned"])
+                    scene.addItem(com)
+                    com.setPos(comment["pos"]["x"], comment["pos"]["y"])

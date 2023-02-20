@@ -47,7 +47,7 @@ class NEPComment(QGraphicsItem):
     pin_icon_off = None
     pin_icon_on  = None
     temp_item_list = []
-    def __init__(self, label, content_rect, NEP):
+    def __init__(self, label, content_rect, NEP, bg_color=None, is_pinned=False):
         super().__init__()
         self._NEP = NEP
         self.pin_icon_off = QIcon(":/pinItem.png")
@@ -56,16 +56,24 @@ class NEPComment(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setAcceptHoverEvents(True)
+
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
         self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
         if not label:
             label = "This is a new comment"
         self.set_label(label)
 
-        self.create_pin_icon()
+        self.create_pin_icon(is_pinned)
 
-        self.bg_color = COLOR_DEFAULT
-        self.setAcceptHoverEvents(True)
+        if not bg_color:
+            self.bg_color = COLOR_DEFAULT
+        else:
+            self.bg_color = QColor(bg_color)
+            self.bg_color.setAlpha(50)
+            self.update_label_color(self.bg_color)
+
+        
 
 
 
@@ -98,14 +106,17 @@ class NEPComment(QGraphicsItem):
             self.pin_button.setIcon(self.pin_icon_on)
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
-    def create_pin_icon(self):
+    def create_pin_icon(self, is_pinned):
         self.pin_button = QToolButton()
         self.pin_button.setFixedSize(24,24)
-        self.pin_button.setIcon(self.pin_icon_off)
+        if not is_pinned:
+            self.pin_button.setIcon(self.pin_icon_off)
+        else:
+            self.pin_button.setIcon(self.pin_icon_on)
         self.pin_button.setIconSize(QSize(256,256))
         self.pin_button.setAttribute(Qt.WA_NoSystemBackground)
         self.pin_button.released.connect(self.toggle_pin)
-        self.is_pinned = False
+        self.is_pinned = is_pinned
 
         pxy = QGraphicsProxyWidget(self)
         pxy.setWidget( self.pin_button )
