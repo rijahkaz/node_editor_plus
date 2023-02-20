@@ -7,7 +7,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -187,8 +187,7 @@ class NodeEditorPlus():
             return True
 
         # in the end if we didn't intercept a key, run original callback
-        mel.eval("nodeEdKeyPressCommand \"{}\" \"{}\"".format(node_editor, key_pressed))
-        return True
+        return mel.eval("nodeEdKeyPressCommand \"{}\" \"{}\"".format(node_editor, key_pressed))
 
     def toolbar_add_button(self, toolbar, tooltip, icon_name, command):
         a = QAction(icon=QIcon(os.path.join(self.icons_path, icon_name)), text="", parent=toolbar)
