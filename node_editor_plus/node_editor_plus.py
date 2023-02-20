@@ -30,62 +30,6 @@ def getCurrentView(node_editor):
     scene = getCurrentScene(node_editor)
     return scene.views()[0]
 
-
-class AlignNodes():
-    def __init__(self):
-        pass
-
-    def getFullLength(self, axis, graphicsList):
-        fullLength = 0
-        for node in graphicsList:
-            if axis == "x":
-                fullLength = fullLength + node.boundingRect().width()
-            elif axis == "y":
-                fullLength = fullLength + node.boundingRect().height()
-    
-        return fullLength
-
-    def getInitialNodeValue(self, axis, graphicsList):
-        initialValue = 0
-        firstNode = graphicsList[0]
-        if axis == "x":
-            initialValue = firstNode.pos().x()
-        elif axis == "y":
-            initialValue = firstNode.pos().y()
-    
-        return initialValue
-    
-    def horizontalAlign(self, graphicsList):
-        xValue = 0
-        yValue = 0
-        #Get Y Value: Will be the same for all.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("x", graphicsList)
-        #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get X position for the first node.
-        xValue = self.getInitialNodeValue("x", graphicsList)
-        #Ititate through list and asign values.
-        for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I add the width because I want a wider gap between them horizontal
-            xValue += node.boundingRect().width() + spaceBetween 
-    def verticalAlign(self, graphicsList):
-        xValue = 0
-        yValue = 0
-        #Get X Value: Will be the same for all.
-        xValue = self.getInitialNodeValue("x", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("y", graphicsList)
-        #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get Y position for the first node.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I did not add the height because they would be too far apart.
-            yValue += spaceBetween
        
 
 class NodeEditorPlus():
@@ -96,6 +40,7 @@ class NodeEditorPlus():
     def __init__(self):
         # manager to propagate drags between our custom nodes
         self._drag_manager = custom_nodes.NEPDragManager()
+        self.aligner = custom_nodes.NEPNodeAligner()
         self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
 
     def tab_change_callback(self):
@@ -156,6 +101,7 @@ class NodeEditorPlus():
         ''' Detects keypresses'''
         node_editor = args[0]
         key_pressed = args[1]
+        enter = True
 
         print(key_pressed)
 
@@ -175,13 +121,37 @@ class NodeEditorPlus():
         # delete selected comment(s)
         elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_comment()
-        # align selected node(s) horizontally
-        elif (mods & 1) > 0 and key_pressed == "A": 
-            self.align_nodes("horizontal")
+        # align selected node(s) to the Top
+        elif (mods & 1) > 0 and key_pressed == "W": 
+            self.alignNodes("top", enter)
             return True
-        # align selected node(s) vertically
+        # align selected node(s) to the Middle
+        elif (mods & 4) > 0 and key_pressed == "W": 
+            self.alignNodes("middle", enter)
+            return True
+        # align selected node(s) to the Bottom
+        elif (mods & 1) > 0 and key_pressed == "S": 
+            self.alignNodes("bottom", enter)
+            return True
+        # align selected node(s) to the Left
+        elif (mods & 1) > 0 and key_pressed == "A": 
+            self.alignNodes("left", enter)
+            return True
+        # align selected node(s) to the Center
+        elif (mods & 4) > 0 and key_pressed == "A": 
+            self.alignNodes("center", enter)
+            return True
+        # align selected node(s) to the Right
+        elif (mods & 1) > 0 and key_pressed == "D": 
+            self.alignNodes("right", enter)
+            return True
+        # distribute selected node(s) Horizontally
+        elif (mods & 1) > 0 and key_pressed == "H": 
+            self.alignNodes("horizontal", enter)
+            return True
+        # distribute selected node(s) Vertically
         elif (mods & 1) > 0 and key_pressed == "V": 
-           self.align_nodes("vertical")
+           self.alignNodes("vertical", enter)
            return True
 
         # remake of original hotkeys to make them work with our custom nodes
@@ -192,7 +162,6 @@ class NodeEditorPlus():
         elif key_pressed == "F":
             cmds.nodeEditor(node_editor, edit=True, frameSelected=True)
             return True
-
         # in the end if we didn't intercept a key, run original callback
         return mel.eval("nodeEdKeyPressCommand \"{}\" \"{}\"".format(node_editor, key_pressed))
 
@@ -211,6 +180,7 @@ class NodeEditorPlus():
         parent_ctrl = OpenMayaUI.MQtUtil.findControl(nodeEdPaneParent)
         original_widget = wrapInstance(int(parent_ctrl), QWidget)
         original_layout = original_widget.layout()
+        alignNode = False
 
         # create our new layout and add it
         self.horizontal_main_layout = QHBoxLayout()
@@ -228,12 +198,12 @@ class NodeEditorPlus():
 
         # align buttons
         self.left_toolbar.addSeparator()
-        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    "")
-        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", "")
-        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", "")
-        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   "")
-        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", "")
-        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  "")
+        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg", self.alignNodes("top", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", self.alignNodes("middle" , alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", self.alignNodes("bottom" , alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   self.alignNodes("left" , alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", self.alignNodes("center", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  self.alignNodes("right", alignNode))
         self.left_toolbar.addSeparator()
 
         # add the populated toolbar to the new layout we created
@@ -242,19 +212,31 @@ class NodeEditorPlus():
         # re-add the Node Editor to our new layout
         ctrl = OpenMayaUI.MQtUtil.findControl(self.node_editor)
         nodeEdPane = wrapInstance(int(ctrl), QWidget)
+        alignNode = True
         self.horizontal_main_layout.addWidget(nodeEdPane)
 
 
-    def align_nodes(self, alignIn):
-        nodeAl = AlignNodes()
-        if alignIn == "vertical":
-            #print(nodeAl, alignIn)
-            nodeAl.verticalAlign(self.get_selected_comments())
-            cmds.nodeEditor( self.node_editor, edit=True, frameAll=True)
-        if alignIn == "horizontal":
-            #print(nodeAl, alignIn)
-            nodeAl.horizontalAlign(self.get_selected_comments())
-            cmds.nodeEditor( self.node_editor, edit=True, frameAll=True)
+
+    def alignNodes(self, alignIn, enter):
+        if enter:
+            if alignIn == "top":
+                self.aligner.topAlign(self.get_selected_comments())
+            elif alignIn == "middle":
+                self.aligner.middleAlign(self.get_selected_comments())
+            elif alignIn == "bottom":
+                self.aligner.bottomAlign(self.get_selected_comments())
+            elif alignIn == "left":
+                self.aligner.leftAlign(self.get_selected_comments())
+            elif alignIn == "center":
+                self.aligner.centerAlign(self.get_selected_comments())
+            elif alignIn == "right":
+                self.aligner.rightAlign(self.get_selected_comments())
+            elif alignIn == "horizontal":
+                self.aligner.horizontalAlign(self.get_selected_comments())
+            elif alignIn == "vertical":
+                self.aligner.verticalAlign(self.get_selected_comments())
+        else:
+            print("No nodes selected!")
 
     def hide_default_HUD_message(self):
         cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
