@@ -2,13 +2,13 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="25.107187mm"
-   height="39.760151mm"
-   viewBox="0 0 25.107187 39.760151"
+   width="26.562395mm"
+   height="39.760273mm"
+   viewBox="0 0 26.562395 39.760273"
    version="1.1"
    id="svg5"
    inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
-   sodipodi:docname="inkporter-svg-on390le2.svg"
+   sodipodi:docname="inkporter-svg-ckfgnrpf.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -24,15 +24,15 @@
      inkscape:document-units="px"
      showgrid="false"
      borderlayer="true"
-     inkscape:zoom="0.5"
-     inkscape:cx="112"
-     inkscape:cy="233"
+     inkscape:zoom="0.70710678"
+     inkscape:cx="-245.36605"
+     inkscape:cy="150.61374"
      inkscape:window-width="1920"
      inkscape:window-height="1027"
-     inkscape:window-x="1908"
-     inkscape:window-y="1102"
+     inkscape:window-x="-8"
+     inkscape:window-y="22"
      inkscape:window-maximized="1"
-     inkscape:current-layer="g1480"
+     inkscape:current-layer="align_center"
      inkscape:snap-bbox="true" />
   <defs
      id="defs2" />
@@ -41,34 +41,36 @@
      id="g30238"
      inkscape:label="AlignLeft"
      style="display:inline"
-     transform="translate(-200.61374,-0.11992478)">
+     transform="translate(-44.157345,19.194718)">
     <g
        id="align_left"
-       transform="translate(193.16733)">
+       transform="translate(37.438542,-19.314641)"
+       style="display:inline">
       <g
          id="g30243"
-         transform="rotate(90,19.999999,19.999999)">
+         transform="rotate(90,23.3594,23.3594)"
+         style="display:inline">
         <rect
            style="fill:#48aab5;fill-opacity:1;stroke:#3a3a3a;stroke-width:1.5875;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
            id="rect30232"
            width="9.2706413"
            height="21.270729"
            x="22.343063"
-           y="8.2401552" />
+           y="14.231354" />
         <rect
            style="fill:#48aab5;fill-opacity:1;stroke:#3a3a3a;stroke-width:1.5875;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
            id="rect30234"
            width="9.2706413"
            height="14.690531"
            x="8.3862934"
-           y="14.820351" />
+           y="20.811544" />
         <rect
-           style="fill:#bdbdbd;fill-opacity:1;stroke:#3a3a3a;stroke-width:1.5875;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+           style="fill:#bdbdbd;fill-opacity:1;stroke:#3a3a3a;stroke-width:1.87837;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
            id="rect30236"
-           width="38.172649"
-           height="1.8568281"
-           x="0.91367477"
-           y="29.903013" />
+           width="37.881901"
+           height="2.6195474"
+           x="1.0591075"
+           y="36.441265" />
       </g>
     </g>
   </g>
