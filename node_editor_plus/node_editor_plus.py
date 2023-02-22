@@ -9,7 +9,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -198,12 +198,14 @@ class NodeEditorPlus():
 
         # align buttons
         self.left_toolbar.addSeparator()
-        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg", self.alignNodes("top", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    self.alignNodes("top", alignNode))
         self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", self.alignNodes("middle" , alignNode))
         self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", self.alignNodes("bottom" , alignNode))
         self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   self.alignNodes("left" , alignNode))
         self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", self.alignNodes("center", alignNode))
         self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  self.alignNodes("right", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally", "distribute_horizontal.svg", self.alignNodes("distribute", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically",   "distribute_vertical.svg",   self.alignNodes("distribute", alignNode))
         self.left_toolbar.addSeparator()
 
         # add the populated toolbar to the new layout we created
