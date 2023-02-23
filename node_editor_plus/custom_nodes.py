@@ -356,6 +356,12 @@ class NEPDragManager():
         self.items_being_dragged = []
 
 class NEPNodeAligner():
+    def startAlign(self, caller, selectedItems, event):
+        pass
+
+    def stopAlign(self, caller, selectedItems, event):
+        pass
+
     def getFullLength(self, axis, graphicsList):
         fullLength = 0
         for node in graphicsList:
@@ -376,7 +382,7 @@ class NEPNodeAligner():
     
         return initialValue
 
-    def get_all_values(self, graphicsList):
+    def get_all_positions(self, graphicsList):
         allVals = []
         values = []
         for node in graphicsList:
@@ -385,6 +391,16 @@ class NEPNodeAligner():
             values.append(allVals)
             allVals = []
         return values
+
+    def get_all_values(self, graphicsList):
+           allVals = []
+           values = []
+           for node in graphicsList:
+               allVals.append(node.boundingRect().width())
+               allVals.append(node.boundingRect().height())
+               values.append(allVals)
+               allVals = []
+           return values
 
     def getTop(self, positionList):  #+Y
         topMostY = min(position[1] for position in positionList)
@@ -423,40 +439,54 @@ class NEPNodeAligner():
         return rightMostX
 
     def leftAlign(self, graphicsList):
-        xValue = self.getMostLeft(self.get_all_values(graphicsList))
+        xValue = self.getMostLeft(self.get_all_positions(graphicsList))
         #print(xValue)
         for node in graphicsList:
             node.setPos(xValue, node.pos().y())
 
     def centerAlign(self, graphicsList):
-        xValue = self.getCenter(self.getMostLeft(self.get_all_values(graphicsList)), self.getMostRight(self.get_all_values(graphicsList)))
+        xValue = self.getCenter(self.getMostLeft(self.get_all_positions(graphicsList)), self.getMostRight(self.get_all_positions(graphicsList)))
         #print(xValue)
         for node in graphicsList:
             node.setPos(xValue, node.pos().y())
 
     def rightAlign(self, graphicsList):
-        xValue = self.getMostRight(self.get_all_values(graphicsList))
-        #print(xValue)
+        xValue = self.getMostRight(self.get_all_positions(graphicsList))
+        widthValue = self.getMostRight(self.get_all_values(graphicsList))
         for node in graphicsList:
-            node.setPos(xValue, node.pos().y())
+            nodeWidth = node.boundingRect().width()
+            widthDifference = widthValue - nodeWidth
+            print("Inform:","xValue", xValue,"Width Value", widthValue, "Width Diffenrence", widthDifference, "node width", nodeWidth)
+            if widthDifference != 0:
+                xTemp = xValue + widthDifference
+                node.setPos(xTemp, node.pos().y())
+                print("xTemp", xTemp)
+          
 
     def topAlign(self, graphicsList):
-        yValue = self.getTop(self.get_all_values(graphicsList))
+        yValue = self.getTop(self.get_all_positions(graphicsList))
         #print(yValue)
         for node in graphicsList:
             node.setPos(node.pos().x(), yValue)
 
     def middleAlign(self, graphicsList):
-        yValue = self.getMiddle(self.getMostTop(self.get_all_values(graphicsList)), self.getMostBottom(self.get_all_values(graphicsList)))
+        yValue = self.getMiddle(self.getMostTop(self.get_all_positions(graphicsList)), self.getMostBottom(self.get_all_positions(graphicsList)))
         #print(yValue)
         for node in graphicsList:
             node.setPos(node.pos().x(), yValue)
 
     def bottomAlign(self, graphicsList):
-        yValue = self.getBottom(self.get_all_values(graphicsList))
+        yValue = self.getBottom(self.get_all_positions(graphicsList))
+        heightValue = self.getBottom(self.get_all_values(graphicsList))
         #print(yValue)
         for node in graphicsList:
-            node.setPos(node.pos().x(), yValue)
+            nodeHieight = node.boundingRect().height()
+            heightDifference = heightValue - nodeHieight
+            print("Inform:","xValue", yValue,"height Value", heightValue, "height Diffenrence", heightDifference, "node height",nodeHieight)
+            if heightDifference != 0:
+                yTemp = yValue + heightDifference
+                node.setPos(node.pos().x(), yTemp)
+                print("yTemp", yTemp)
 
     def horizontalAlign(self, graphicsList):
         xValue = 0
