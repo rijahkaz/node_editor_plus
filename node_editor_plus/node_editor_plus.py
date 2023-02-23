@@ -123,35 +123,35 @@ class NodeEditorPlus():
             self.delete_comment()
         # align selected node(s) to the Top
         elif (mods & 1) > 0 and key_pressed == "W": 
-            self.alignNodes("top", enter)
+            self.alignNodes("top")
             return True
         # align selected node(s) to the Middle
         elif (mods & 4) > 0 and key_pressed == "W": 
-            self.alignNodes("middle", enter)
+            self.alignNodes("middle")
             return True
         # align selected node(s) to the Bottom
         elif (mods & 1) > 0 and key_pressed == "S": 
-            self.alignNodes("bottom", enter)
+            self.alignNodes("bottom")
             return True
         # align selected node(s) to the Left
         elif (mods & 1) > 0 and key_pressed == "A": 
-            self.alignNodes("left", enter)
+            self.alignNodes("left")
             return True
         # align selected node(s) to the Center
         elif (mods & 4) > 0 and key_pressed == "A": 
-            self.alignNodes("center", enter)
+            self.alignNodes("center")
             return True
         # align selected node(s) to the Right
         elif (mods & 1) > 0 and key_pressed == "D": 
-            self.alignNodes("right", enter)
+            self.alignNodes("right")
             return True
         # distribute selected node(s) Horizontally
         elif (mods & 1) > 0 and key_pressed == "H": 
-            self.alignNodes("horizontal", enter)
+            self.alignNodes("horizontal")
             return True
         # distribute selected node(s) Vertically
         elif (mods & 1) > 0 and key_pressed == "V": 
-           self.alignNodes("vertical", enter)
+           self.alignNodes("vertical")
            return True
 
         # remake of original hotkeys to make them work with our custom nodes
@@ -198,14 +198,14 @@ class NodeEditorPlus():
 
         # align buttons
         self.left_toolbar.addSeparator()
-        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    self.alignNodes("top", alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", self.alignNodes("middle" , alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", self.alignNodes("bottom" , alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   self.alignNodes("left" , alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", self.alignNodes("center", alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  self.alignNodes("right", alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally", "distribute_horizontal.svg", self.alignNodes("distribute", alignNode))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically",   "distribute_vertical.svg",   self.alignNodes("distribute", alignNode))
+        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    partial(self.alignNodes,"top"))
+        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", partial(self.alignNodes,"middle"))
+        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", partial(self.alignNodes,"bottom"))
+        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   partial(self.alignNodes,"left"))
+        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", partial(self.alignNodes,"center"))
+        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  partial(self.alignNodes,"right"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally", "distribute_horizontal.svg", partial(self.alignNodes,"horizontal"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically",   "distribute_vertical.svg",   partial(self.alignNodes,"vertical"))
         self.left_toolbar.addSeparator()
 
         # add the populated toolbar to the new layout we created
@@ -219,31 +219,33 @@ class NodeEditorPlus():
 
 
 
-    def alignNodes(self, alignIn, enter):
-        if enter:
-            if alignIn == "top":
-                self.aligner.topAlign(self.get_selected_comments())
-            elif alignIn == "middle":
-                self.aligner.middleAlign(self.get_selected_comments())
-            elif alignIn == "bottom":
-                self.aligner.bottomAlign(self.get_selected_comments())
-            elif alignIn == "left":
-                self.aligner.leftAlign(self.get_selected_comments())
-            elif alignIn == "center":
-                self.aligner.centerAlign(self.get_selected_comments())
-            elif alignIn == "right":
-                self.aligner.rightAlign(self.get_selected_comments())
-            elif alignIn == "horizontal":
-                self.aligner.horizontalAlign(self.get_selected_comments())
-            elif alignIn == "vertical":
-                self.aligner.verticalAlign(self.get_selected_comments())
-        else:
-            print("No nodes selected!")
+    def alignNodes(self, alignIn):
+        selected_items = self.get_selected_items()
+        if not selected_items:
+            print("No nodes selected")
+            return
+
+        if alignIn == "top":
+            self.aligner.topAlign(selected_items)
+        elif alignIn == "middle":
+            self.aligner.middleAlign(selected_items)
+        elif alignIn == "bottom":
+            self.aligner.bottomAlign(selected_items)
+        elif alignIn == "left":
+            self.aligner.leftAlign(selected_items)
+        elif alignIn == "center":
+            self.aligner.centerAlign(selected_items)
+        elif alignIn == "right":
+            self.aligner.rightAlign(selected_items)
+        elif alignIn == "horizontal":
+            self.aligner.horizontalAlign(selected_items)
+        elif alignIn == "vertical":
+            self.aligner.verticalAlign(selected_items)
 
     def hide_default_HUD_message(self):
         cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
 
-    def get_selected_comments(self):
+    def get_selected_items(self):
         selected_items = []
         scene = getCurrentScene(self.node_editor)
         if scene:
@@ -253,7 +255,7 @@ class NodeEditorPlus():
         return selected_items
 
     def color_comment(self):
-        selected_items = self.get_selected_comments()
+        selected_items = self.get_selected_items()
         if selected_items:
             valid_comment_nodes = []
             for item in selected_items:
@@ -266,7 +268,7 @@ class NodeEditorPlus():
                     item.set_bg_color(new_color)
 
     def rename_comment(self):
-        selected_items = self.get_selected_comments()
+        selected_items = self.get_selected_items()
         if selected_items:
             # only rename 1 at a time
             if len(selected_items) == 1:
@@ -274,7 +276,7 @@ class NodeEditorPlus():
                     selected_items[0].show_rename_edit_line()
 
     def delete_comment(self):
-        for item in self.get_selected_comments():
+        for item in self.get_selected_items():
             if type(item) == custom_nodes.NEPComment:
                 item.delete()
 
@@ -285,7 +287,7 @@ class NodeEditorPlus():
 
     def create_comment(self):
         scene = getCurrentScene(self.node_editor)
-        selected_items = self.get_selected_comments()
+        selected_items = self.get_selected_items()
         if selected_items:
             items_list = []
             for item in selected_items:
