@@ -396,8 +396,8 @@ class NEPNodeAligner():
            allVals = []
            values = []
            for node in graphicsList:
-               allVals.append(node.boundingRect().width())
-               allVals.append(node.boundingRect().height())
+               allVals.append(node.pos().x() + node.boundingRect().width())
+               allVals.append(node.pos().y() + node.boundingRect().height())
                values.append(allVals)
                allVals = []
            return values
@@ -451,16 +451,11 @@ class NEPNodeAligner():
             node.setPos(xValue, node.pos().y())
 
     def rightAlign(self, graphicsList):
-        xValue = self.getMostRight(self.get_all_positions(graphicsList))
         widthValue = self.getMostRight(self.get_all_values(graphicsList))
         for node in graphicsList:
             nodeWidth = node.boundingRect().width()
-            widthDifference = widthValue - nodeWidth
-            print("Inform:","xValue", xValue,"Width Value", widthValue, "Width Diffenrence", widthDifference, "node width", nodeWidth)
-            if widthDifference != 0:
-                xTemp = xValue + widthDifference
-                node.setPos(xTemp, node.pos().y())
-                print("xTemp", xTemp)
+            xValue = widthValue - nodeWidth
+            node.setPos(xValue, node.pos().y())
           
 
     def topAlign(self, graphicsList):
@@ -476,17 +471,12 @@ class NEPNodeAligner():
             node.setPos(node.pos().x(), yValue)
 
     def bottomAlign(self, graphicsList):
-        yValue = self.getBottom(self.get_all_positions(graphicsList))
         heightValue = self.getBottom(self.get_all_values(graphicsList))
         #print(yValue)
         for node in graphicsList:
             nodeHieight = node.boundingRect().height()
-            heightDifference = heightValue - nodeHieight
-            print("Inform:","xValue", yValue,"height Value", heightValue, "height Diffenrence", heightDifference, "node height",nodeHieight)
-            if heightDifference != 0:
-                yTemp = yValue + heightDifference
-                node.setPos(node.pos().x(), yTemp)
-                print("yTemp", yTemp)
+            yValue = heightValue - nodeHieight
+            node.setPos(node.pos().x(), yValue)
 
     def horizontalAlign(self, graphicsList):
         xValue = 0
@@ -518,5 +508,5 @@ class NEPNodeAligner():
         for node in graphicsList:
             node.setPos(xValue, yValue)
             #Here I did not add the height because they would be too far apart.
-            yValue += spaceBetween
+            yValue += node.boundingRect().height() + spaceBetween
 
