@@ -9,7 +9,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.15"
+VERSION = "0.1.16"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -629,38 +629,43 @@ class NodeEditorPlus():
         center = view.mapToScene(view.viewport().rect().center())
         img.setPos( center.x()-75, center.y()-25 )
 
+    def get_not_found_encoded_img(self):
+        image_path = os.path.join(os.path.dirname(__file__), "img/not_found.png")
+        with open(image_path, 'rb') as image_file:
+            return base64.b64encode(image_file.read())
+
     def optimize_images_data(self):
         # checks all images being used in the scene, clear binary data of unused indices
         attr_name = "NEP_DATA"
         used_indices = []
         if cmds.objExists(NODE_EDITOR_CFG): # only do this if we have a CFG node, otherwise there are no images stored in the scene
-            if cmds.attributeQuery(attr_name, node=NODE_EDITOR_CFG, exists=True):
-                load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+"."+attr_name))
+            if cmds.attributeQuery("IMG_LIST", node=NODE_EDITOR_CFG, exists=True):
+                if cmds.attributeQuery(attr_name, node=NODE_EDITOR_CFG, exists=True):
+                    load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+"."+attr_name))
 
-                for tab_name in load_dict:
-                    for item in load_dict[tab_name]:
-                        if item["nep_type"] == "image":
-                            if not item["img_index"] in used_indices:
-                                used_indices.append(item["img_index"])
-
-            bookmark_infos = cmds.ls(type='nodeGraphEditorBookmarkInfo')
-            if bookmark_infos:
-                for info_node in bookmark_infos:
-                    if cmds.attributeQuery(attr_name, node=info_node, exists=True):
-                        load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
-                        for item in load_dict["bookmark"]:
+                    for tab_name in load_dict:
+                        for item in load_dict[tab_name]:
                             if item["nep_type"] == "image":
                                 if not item["img_index"] in used_indices:
                                     used_indices.append(item["img_index"])
 
-            img_array = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")
-            size = len(img_array)
-            for i in range(size):
-                if i not in used_indices:
-                    img_array[i] = "" # clear what was there
+                bookmark_infos = cmds.ls(type='nodeGraphEditorBookmarkInfo')
+                if bookmark_infos:
+                    for info_node in bookmark_infos:
+                        if cmds.attributeQuery(attr_name, node=info_node, exists=True):
+                            load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
+                            for item in load_dict["bookmark"]:
+                                if item["nep_type"] == "image":
+                                    if not item["img_index"] in used_indices:
+                                        used_indices.append(item["img_index"])
 
-            cmds.setAttr(NODE_EDITOR_CFG+".IMG_LIST", size, *img_array, type="stringArray")
+                img_array = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")
+                size = len(img_array)
+                for i in range(size):
+                    if i not in used_indices:
+                        img_array[i] = "" # clear what was there
 
+                cmds.setAttr(NODE_EDITOR_CFG+".IMG_LIST", size, *img_array, type="stringArray")
 
 
     def graph_connection(self, conn_type="output"):
@@ -773,7 +778,10 @@ class NodeEditorPlus():
             if   item["nep_type"] == "comment":
                 nep_item = custom_nodes.NEPComment(label=item["label"], content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
             elif item["nep_type"] == "image":
-                encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
+                if not cmds.objExists(NODE_EDITOR_CFG) or not cmds.attributeQuery("IMG_LIST", node=NODE_EDITOR_CFG, exists=True):
+                    encoded_image = self.get_not_found_encoded_img()
+                else:
+                    encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
                 nep_item = custom_nodes.NEPImage(label="", encoded_image=encoded_image, content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
                 nep_item.set_img_index(item["img_index"])
             scene.addItem(nep_item)
@@ -849,7 +857,10 @@ class NodeEditorPlus():
                     if   item["nep_type"] == "comment":
                         nep_item = custom_nodes.NEPComment(label=item["label"], content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
                     elif item["nep_type"] == "image":
-                        encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
+                        if not cmds.objExists(NODE_EDITOR_CFG) or not cmds.attributeQuery("IMG_LIST", node=NODE_EDITOR_CFG, exists=True):
+                            encoded_image = self.get_not_found_encoded_img()
+                        else:
+                            encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
                         nep_item = custom_nodes.NEPImage(label="", encoded_image=encoded_image, content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
                         nep_item.set_img_index(item["img_index"])
                     scene.addItem(nep_item)
