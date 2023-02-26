@@ -7,9 +7,10 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
+from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.16"
+VERSION = "0.1.17"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -116,10 +117,10 @@ class NodeEditorPlus():
         scene.installEventFilter(self._mouse_pos_filter)
 
         # change a couple things of the original graph to keep ours more stable
-        self.override_clear_function()
-        self.override_remove_function()
-        self.override_graph_function()
-        self.decorate_bookmarks_functions()
+        overrides.override_clear_function(self.node_editor)
+        overrides.override_remove_function(self.node_editor)
+        overrides.override_graph_function(self.node_editor)
+        overrides.decorate_bookmarks_functions(self)
 
     @staticmethod
     def is_graph_extended(ned=None):
@@ -167,183 +168,6 @@ class NodeEditorPlus():
                 for item in scene_items:
                     if type(item) in [custom_nodes.NEPComment, custom_nodes.NEPImage]:
                         item.delete()
-
-    def override_clear_function(self):
-        # to check if the current graph has our custom nodes
-        new_cmd = '''global proc nodeEdClearAll(string $ned)
-                    {
-                        if ($ned != "")
-                        {
-                            int $execute = 0;
-                            python("from node_editor_plus import node_editor_plus");
-                            python("import importlib; importlib.reload(node_editor_plus)");
-                            if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+self.node_editor+'''\\")")`)
-                            {
-                                if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nAre you sure you want to clear the graph?\\nThis operation is NOT undoable."
-                                                        -button "Yes" -button "No" -defaultButton "No"
-                                                        -cancelButton "No" -dismissString "No"` == "Yes")
-                                {
-                                    python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+self.node_editor+'''\\")");
-                                    $execute = 1;
-                                } else {
-                                    $execute = 0;
-                                }
-                            } else {
-                                $execute = 1;
-                            }
-
-                            if ($execute){
-                                nodeEditor -e -rootNode "" $ned;
-                            }
-                        }
-                    }'''
-        mel.eval(new_cmd)
-
-    def restore_clear_function(self):
-        # avoid errors if our UI is closed
-        old_cmd = '''global proc nodeEdClearAll(string $ned)
-                    {
-                        if ($ned != "") {
-                            nodeEditor -e -rootNode "" $ned;
-                        }
-                    }'''
-        mel.eval(old_cmd)
-
-    def override_remove_function(self):
-        new_cmd = '''global proc nodeEdRemoveSelected(string $ned)
-                    {
-                        if ($ned != "") {
-                            python("from node_editor_plus import node_editor_plus");
-                            python("import importlib; importlib.reload(node_editor_plus)");
-                            if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+self.node_editor+'''\\")")`)
-                            {
-                                python("node_editor_plus.NodeEditorPlus.static_delete_item(\\"'''+self.node_editor+'''\\")");
-                            }
-                            nodeEditor -e -rem "" $ned;
-                        }
-                    }'''
-        mel.eval(new_cmd)
-
-    def restore_remove_function(self):
-        old_cmd = '''global proc nodeEdRemoveSelected(string $ned)
-                    {
-                        if ($ned != "") {
-                            nodeEditor -e -rem "" $ned;
-                        }
-                    }'''
-        mel.eval(old_cmd)
-
-    def override_graph_function(self):
-        # first check if it's additive mode, if not then we need to clear our stuff so Maya doesn't complain
-        # remove our custom nodes from the current selection, if there are still native nodes selected, remove all of ours and fallback to old graph
-        new_cmd = '''global proc nodeEdGraph(string $ned, int $upstream, int $downstream)
-                    {
-                        if ($ned != "")
-                        {
-                            int $execute = 0;
-                            if (`nodeEditor -q -additiveGraphingMode $ned`) {
-                                $execute = 1;
-                            } else {
-                                python("from node_editor_plus import node_editor_plus");
-                                python("import importlib; importlib.reload(node_editor_plus)");
-                                if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+self.node_editor+'''\\")")`)
-                                {
-                                    if (`python("node_editor_plus.NodeEditorPlus.clean_selection(\\"'''+self.node_editor+'''\\")")`)
-                                    {
-                                        if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nGraphing will delete them, are you sure?\\nThis operation is NOT undoable."
-                                                        -button "Yes" -button "No" -defaultButton "No"
-                                                        -cancelButton "No" -dismissString "No"` == "Yes")
-                                        {
-                                            python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+self.node_editor+'''\\")");
-                                            $execute = 1;
-                                        } else {
-                                            $execute = 0;
-                                        }
-                                    } else {
-                                        python("node_editor_plus.NodeEditorPlus.static_show_message(\\"'''+self.node_editor+'''\\", \\"Cannot graph Comment or Image nodes\\", 0, 3)");
-                                        $execute = 0;
-                                    }
-                                } else {
-                                    $execute = 1;
-                                }
-                            }
-
-                            if ($execute){
-                                if ($upstream && $downstream) {
-                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups -ds ");
-                                } else if ($upstream) {
-                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups ");
-                                } else if ($downstream) {
-                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ds ");
-                                }
-                            }
-                        }
-                    }'''
-        mel.eval(new_cmd)
-
-    def restore_graph_function(self):
-        old_cmd = '''global proc nodeEdGraph(string $ned, int $upstream, int $downstream)
-                    {
-                        if ($ned != "") {
-                            if ($upstream && $downstream) {
-                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups -ds ");
-                            } else if ($upstream) {
-                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups ");
-                            } else if ($downstream) {
-                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ds ");
-                            }
-                        }
-                    }'''
-        mel.eval(old_cmd)
-
-    def decorate_bookmarks_functions(self):
-        # adds decorators to handle our custom nodes when bookmarks get loaded or saved
-        def handle_save_decor(function):
-            def wrapper(*args, **kwargs):
-                # make sure code is pointing to right editor
-                args_list = list(args)
-                args_list[0] = self.node_editor
-
-                # same hack original window uses to get new info
-                n0 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
-                output = function(*args_list, **kwargs) # run original function
-                n1 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
-                newInfos = n1 - n0
-                if len(newInfos):
-                    newInfo = newInfos.pop()
-                    self.save_nep_data_to_bookmark(newInfo)
-                return output
-            return wrapper
-
-        def handle_load_decor(function):
-            def wrapper(*args, **kwargs):
-                # first we confirm if the user really wants to clear the graph, if so, deletes our custom nodes first so Maya doesn't crash
-                from node_editor_plus import node_editor_plus
-                importlib.reload(node_editor_plus)
-                execute = False
-                if node_editor_plus.NodeEditorPlus.is_graph_extended(self.node_editor):
-                    if cmds.confirmDialog( title="Confirm", message="There are Comments or Images in the current Tab.\nLoading a bookmark will delete them, are you sure?\nThis operation is NOT undoable.", button=["Yes","No"], defaultButton="No", cancelButton="No", dismissString="No") == "Yes":
-                        execute = True
-                    else:
-                        execute = False
-                else:
-                    execute = True
-
-                if execute:
-                    node_editor_plus.NodeEditorPlus.clear_graph(self.node_editor)
-                    # make sure code is pointing to right editor
-                    args_list = list(args)
-                    args_list[0] = self.node_editor
-                    output = function(*args_list, **kwargs) # run original function
-                    self.load_nep_data_from_bookmark(args_list[1])
-                    return output
-            return wrapper
-
-
-        import maya.app.general.nodeEditorBookmarks
-        importlib.reload(maya.app.general.nodeEditorBookmarks)
-        maya.app.general.nodeEditorBookmarks.createBookmark = handle_save_decor(maya.app.general.nodeEditorBookmarks.createBookmark)
-        maya.app.general.nodeEditorBookmarks.loadBookmark   = handle_load_decor(maya.app.general.nodeEditorBookmarks.loadBookmark)
 
 
     def comment_key_callback(self, *args):
@@ -717,11 +541,10 @@ class NodeEditorPlus():
         # custom nodes persistence
         self.save_nep_data_to_scene()
         # avoid errors if user launches original Node Editor
-        self.restore_clear_function()
-        self.restore_remove_function()
-        self.restore_graph_function()
-        import maya.app.general.nodeEditorBookmarks
-        importlib.reload(maya.app.general.nodeEditorBookmarks)
+        overrides.restore_clear_function()
+        overrides.restore_remove_function()
+        overrides.restore_graph_function()
+        overrides.restore_bookmarks_functions()
 
     def create_nep_data(self, create_string_attr=None, create_string_array_attr=None):
         return_dict = {"created_node":False, "created_attr":False}
@@ -742,7 +565,6 @@ class NodeEditorPlus():
                 cmds.addAttr(NODE_EDITOR_CFG, ln=create_string_array_attr, dataType="stringArray")
                 cmds.lockNode(NODE_EDITOR_CFG, lock=True)
                 return_dict["created_attr"] = True
-
         return return_dict
 
     def save_nep_data_to_bookmark(self, info_node):
@@ -769,26 +591,27 @@ class NodeEditorPlus():
         load_dict = {}
         if cmds.objExists(info_node):
             if cmds.attributeQuery(attr_name, node=info_node, exists=True):
-                load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
-            else:
-                return
+                nep_data = cmds.getAttr(info_node+"."+attr_name)
+                if nep_data:
+                    load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
 
-        scene = getCurrentScene(self.node_editor)
-        for item in load_dict["bookmark"]:
-            if   item["nep_type"] == "comment":
-                nep_item = custom_nodes.NEPComment(label=item["label"], content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
-            elif item["nep_type"] == "image":
-                if not cmds.objExists(NODE_EDITOR_CFG) or not cmds.attributeQuery("IMG_LIST", node=NODE_EDITOR_CFG, exists=True):
-                    encoded_image = self.get_not_found_encoded_img()
-                else:
-                    encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
-                nep_item = custom_nodes.NEPImage(label="", encoded_image=encoded_image, content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
-                nep_item.set_img_index(item["img_index"])
-            scene.addItem(nep_item)
+        if load_dict:
+            scene = getCurrentScene(self.node_editor)
+            for item in load_dict["bookmark"]:
+                if   item["nep_type"] == "comment":
+                    nep_item = custom_nodes.NEPComment(label=item["label"], content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
+                elif item["nep_type"] == "image":
+                    if not cmds.objExists(NODE_EDITOR_CFG) or not cmds.attributeQuery("IMG_LIST", node=NODE_EDITOR_CFG, exists=True):
+                        encoded_image = self.get_not_found_encoded_img()
+                    else:
+                        encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
+                    nep_item = custom_nodes.NEPImage(label="", encoded_image=encoded_image, content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
+                    nep_item.set_img_index(item["img_index"])
+                scene.addItem(nep_item)
 
-            if item["nep_type"] == "comment":
-                nep_item.setZValue(-1)
-            nep_item.setPos(item["pos"]["x"], item["pos"]["y"])
+                if item["nep_type"] == "comment":
+                    nep_item.setZValue(-1)
+                nep_item.setPos(item["pos"]["x"], item["pos"]["y"])
 
 
     def save_nep_data_to_scene(self):
