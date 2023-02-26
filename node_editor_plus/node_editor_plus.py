@@ -9,7 +9,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.12"
+VERSION = "0.1.13"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -59,9 +59,6 @@ class NodeEditorPlus():
         """ force new tabs to also recognize our hotkeys, this is weird since there is only 1 node editor
         but hotkeys only work in the first tab otherwise """
         cmds.nodeEditor(self.node_editor, edit=True, keyPressCommand=self.comment_key_callback)
-
-        # force additive to be ON to avoid crashing Maya
-        cmds.nodeEditor(self.node_editor, edit=True, additiveGraphingMode=False)
 
         # intercept for our needs then call original callback
         parent   = cmds.setParent(query=True)
@@ -118,6 +115,7 @@ class NodeEditorPlus():
         # change a couple things of the original graph to keep ours more stable
         self.override_clear_function()
         self.override_remove_function()
+        self.override_graph_function()
 
     @staticmethod
     def is_graph_extended(ned=None):
@@ -132,6 +130,28 @@ class NodeEditorPlus():
                         return_value = True
                         break
         return return_value
+
+    @staticmethod
+    def clean_selection(ned=None):
+        '''removes our nodes from the selection to see if there are native nodes left, used by graphing
+        returns False if no nodes are left
+        '''
+        scene = getCurrentScene(ned)
+        clean_selected_items = []
+        if scene:
+            selected_items = scene.selectedItems()
+            if selected_items:
+                for item in selected_items:
+                    if type(item) in [custom_nodes.NEPComment, custom_nodes.NEPImage]:
+                        item.setSelected(False)
+
+            if not scene.selectedItems():
+                return False
+            else:
+                return True
+    @staticmethod
+    def static_show_message(ned=None, message=None, message_type=0, duration=3):
+        cmds.nodeEditor(ned, edit=True, hudMessage=[message, message_type, duration])
 
     @staticmethod
     def clear_graph(ned=None):
@@ -150,13 +170,25 @@ class NodeEditorPlus():
                     {
                         if ($ned != "")
                         {
+                            int $execute = 0;
                             python("from node_editor_plus import node_editor_plus");
                             python("import importlib; importlib.reload(node_editor_plus)");
                             if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+self.node_editor+'''\\")")`)
                             {
-                                python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+self.node_editor+'''\\")");
+                                if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nAre you sure you want to clear the graph?\\nThis operation is NOT undoable."
+                                                        -button "Yes" -button "No" -defaultButton "No"
+                                                        -cancelButton "No" -dismissString "No"` == "Yes")
+                                {
+                                    python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+self.node_editor+'''\\")");
+                                    $execute = 1;
+                                } else {
+                                    $execute = 0;
+                                }
                             }
-                            nodeEditor -e -rootNode "" $ned;
+
+                            if ($execute){
+                                nodeEditor -e -rootNode "" $ned;
+                            }
                         }
                     }'''
         mel.eval(new_cmd)
@@ -191,6 +223,70 @@ class NodeEditorPlus():
                     {
                         if ($ned != "") {
                             nodeEditor -e -rem "" $ned;
+                        }
+                    }'''
+        mel.eval(old_cmd)
+
+    def override_graph_function(self):
+        # first check if it's additive mode, if not then we need to clear our stuff so Maya doesn't complain
+        # remove our custom nodes from the current selection, if there are still native nodes selected, remove all of ours and fallback to old graph
+        new_cmd = '''global proc nodeEdGraph(string $ned, int $upstream, int $downstream)
+                    {
+                        if ($ned != "")
+                        {
+                            int $execute = 0;
+                            if (`nodeEditor -q -additiveGraphingMode $ned`) {
+                                $execute = 1;
+                            } else {
+                                python("from node_editor_plus import node_editor_plus");
+                                python("import importlib; importlib.reload(node_editor_plus)");
+                                if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+self.node_editor+'''\\")")`)
+                                {
+                                    if (`python("node_editor_plus.NodeEditorPlus.clean_selection(\\"'''+self.node_editor+'''\\")")`)
+                                    {
+                                        if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nGraphing will delete them, are you sure?\\nThis operation is NOT undoable."
+                                                        -button "Yes" -button "No" -defaultButton "No"
+                                                        -cancelButton "No" -dismissString "No"` == "Yes")
+                                        {
+                                            python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+self.node_editor+'''\\")");
+                                            $execute = 1;
+                                        } else {
+                                            $execute = 0;
+                                        }
+                                    } else {
+                                        python("node_editor_plus.NodeEditorPlus.static_show_message(\\"'''+self.node_editor+'''\\", \\"Cannot graph Comment or Image nodes\\", 0, 3)");
+                                        $execute = 0;
+                                    }
+                                } else {
+                                    $execute = 1;
+                                }
+                            }
+
+                            if ($execute){
+                                print("EXEC");
+                                if ($upstream && $downstream) {
+                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups -ds ");
+                                } else if ($upstream) {
+                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups ");
+                                } else if ($downstream) {
+                                    nodeEdGraphControl($ned, "nodeEditor -e -rfs -ds ");
+                                }
+                            }
+                        }
+                    }'''
+        mel.eval(new_cmd)
+
+    def restore_graph_function(self):
+        old_cmd = '''global proc nodeEdGraph(string $ned, int $upstream, int $downstream)
+                    {
+                        if ($ned != "") {
+                            if ($upstream && $downstream) {
+                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups -ds ");
+                            } else if ($upstream) {
+                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups ");
+                            } else if ($downstream) {
+                                nodeEdGraphControl($ned, "nodeEditor -e -rfs -ds ");
+                            }
                         }
                     }'''
         mel.eval(old_cmd)
@@ -529,6 +625,7 @@ class NodeEditorPlus():
         # avoid errors if user launches original Node Editor
         self.restore_clear_function()
         self.restore_remove_function()
+        self.restore_graph_function()
 
     def create_nep_data(self, create_string_attr=None, create_string_array_attr=None):
         return_dict = {"created_node":False, "created_attr":False}
