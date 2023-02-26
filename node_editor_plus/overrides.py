@@ -172,10 +172,24 @@ def decorate_bookmarks_functions(NEP):
                 return output
         return wrapper
 
+    def handle_replace_decor(function):
+        def wrapper(*args, **kwargs):
+            output = function(*args, **kwargs) # run original function
+            # same code as original but saving our stuff
+            txt = cmds.textScrollList(args[0]._tsl, query=True, selectItem=True)
+            if txt and len(txt):
+                txt = txt[0]
+                info = args[0]._findInfo(txt)
+                bookmark_name = cmds.getAttr(info + ".name")
+                NEP.save_nep_data_to_bookmark(bookmark_name)
+            return output
+        return wrapper
+
     import maya.app.general.nodeEditorBookmarks
     importlib.reload(maya.app.general.nodeEditorBookmarks)
     maya.app.general.nodeEditorBookmarks.createBookmark = handle_save_decor(maya.app.general.nodeEditorBookmarks.createBookmark)
     maya.app.general.nodeEditorBookmarks.loadBookmark   = handle_load_decor(maya.app.general.nodeEditorBookmarks.loadBookmark)
+    maya.app.general.nodeEditorBookmarks.NodeEditorBookmarksWindow._onReplace = handle_replace_decor(maya.app.general.nodeEditorBookmarks.NodeEditorBookmarksWindow._onReplace)
 
     # fix initial bookmarks, I guess this function is never called the way we create the editor
     maya.app.general.nodeEditorBookmarks.addCallback(NEP.node_editor)

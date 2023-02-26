@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.17"
+VERSION = "0.1.18"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -72,17 +72,24 @@ class NodeEditorPlus():
         self.grid_snap = cmds.nodeEditor(self.node_editor, query=True, gridSnap=True)
         mel.eval("nodeEdSyncControls \"{}\"".format(args[0]))
 
-    def close_all_node_editors(self):
+    def close_all_node_editors(self, debug=False):
         # makes sure only our Node Editor Plus window is shown otherwise Tabs break
         windows_list = cmds.lsUI(windows=True)
         for window in windows_list:
             if "nodeEditorPanel" in window:
                 cmds.deleteUI(window)
         if cmds.window(WINDOW_NAME, exists=True):
-            cmds.deleteUI(WINDOW_NAME)
+            if debug:
+                cmds.deleteUI(WINDOW_NAME)
+                return False
+            else:
+                cmds.showWindow(WINDOW_NAME)
+                return True
+        return False
 
-    def ui(self):
-        self.close_all_node_editors()
+    def ui(self, debug=False):
+        if self.close_all_node_editors(debug):
+            return
 
         cmds.window(WINDOW_NAME, title="Node Editor Plus v{}".format(VERSION), widthHeight=(800, 550), closeCommand=self.window_close )
         form = cmds.formLayout()
@@ -538,13 +545,14 @@ class NodeEditorPlus():
 
 
     def window_close(self):
-        # custom nodes persistence
-        self.save_nep_data_to_scene()
         # avoid errors if user launches original Node Editor
         overrides.restore_clear_function()
         overrides.restore_remove_function()
         overrides.restore_graph_function()
         overrides.restore_bookmarks_functions()
+
+        # custom nodes persistence
+        self.save_nep_data_to_scene()
 
     def create_nep_data(self, create_string_attr=None, create_string_array_attr=None):
         return_dict = {"created_node":False, "created_attr":False}
