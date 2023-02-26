@@ -1,3 +1,5 @@
+import base64
+from functools import partial
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
@@ -36,6 +38,7 @@ class NEPLabelFilter(QObject):
 class NEPComment(QGraphicsItem):
     # Our new brand Comment class
     _NEP = None # reference to our Node Editor Plus class
+    round_corners_size = 10
     label_rect = None
     label  = ""
     Qlabel = None
@@ -49,6 +52,7 @@ class NEPComment(QGraphicsItem):
     temp_item_list = []
     def __init__(self, label, content_rect, NEP, bg_color=None, is_pinned=False):
         super().__init__()
+        self.node_type = type(self)
         self._NEP = NEP
         self.pin_icon_off = QIcon(":/pinItem.png")
         self.pin_icon_on  = QIcon(":/pinON.png")
@@ -59,8 +63,8 @@ class NEPComment(QGraphicsItem):
         self.setAcceptHoverEvents(True)
 
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
-        self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
-        if not label:
+        self.update_manhattan_length()
+        if not label and self.node_type == NEPComment:
             label = "This is a new comment"
         self.set_label(label)
 
@@ -70,12 +74,12 @@ class NEPComment(QGraphicsItem):
             self.bg_color = COLOR_DEFAULT
         else:
             self.bg_color = QColor(bg_color)
-            self.bg_color.setAlpha(50)
-            self.update_label_color(self.bg_color)
+            if self.node_type == NEPComment:
+                self.bg_color.setAlpha(50)
+                self.update_label_color(self.bg_color)
 
-        
-
-
+    def update_manhattan_length(self):
+        self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
 
     def add_child(self, item):
         # On start drag, parents and fixes position of overlapping nodes
@@ -150,8 +154,8 @@ class NEPComment(QGraphicsItem):
             pen      = QPen(Qt.black, 2)
 
         path = QPainterPath()
-        path.addRoundedRect(self.content_rect, 10, 10)
-        
+        path.addRoundedRect(self.content_rect, self.round_corners_size, self.round_corners_size)
+
         painter.setPen(pen)
         painter.fillPath(path, self.bg_color )
         painter.drawPath(path)
@@ -208,10 +212,15 @@ class NEPComment(QGraphicsItem):
         colliding_items = self.collidingItems()
         if colliding_items:
             for item in colliding_items:
-                if type(item) == QGraphicsItem:
+                item_type = type(item)
+                if item_type == QGraphicsItem or item_type == NEPImage:
                     if item not in children:
-                        if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
-                            self.add_child(item)
+                        if item_type == NEPImage:
+                            if not item.is_pinned:
+                                self.add_child(item)
+                        else: # this is a native Maya node
+                            if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
+                                self.add_child(item)
 
 
     def drag_update_hack(self):
@@ -247,7 +256,8 @@ class NEPComment(QGraphicsItem):
 
         # if released while resizing, update manhattanlength
         if self.is_showing_resize_cursor:
-            self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
+            self.update_manhattan_length()
+            self.hide_resize_cursor() # force disable resize cursor
 
         # don't move update anything if pinned, can't drag anyway
         if self.is_pinned: return
@@ -262,7 +272,8 @@ class NEPComment(QGraphicsItem):
                 children = self.childItems()
                 can_exit = True
                 for item in children:
-                    if type(item) == QGraphicsItem:
+                    item_type = type(item)
+                    if item_type == QGraphicsItem or item_type == NEPImage:
                         self.remove_child(item)
                         can_exit = False
                         break
@@ -284,7 +295,7 @@ class NEPComment(QGraphicsItem):
         self.is_showing_resize_cursor = False
 
     def hoverMoveEvent(self, event):
-        if event.pos().manhattanLength() > self.manhattanLength - 12:
+        if event.pos().manhattanLength() > self.manhattanLength - 24:
             if not self.is_showing_resize_cursor:
                 self.show_resize_cursor()
         else:
@@ -510,3 +521,62 @@ class NEPNodeAligner():
             #Here I did not add the height because they would be too far apart.
             yValue += node.boundingRect().height() + spaceBetween
 
+
+class NEPImage(NEPComment):
+    ''' Dragabble Image
+    differences: has no label, cannot drag other nodes, can be dragged by comments
+    '''
+    pixmap = None
+    img_index = -1 # saves img index to rebuild graph
+    def __init__(self, label, content_rect, NEP, encoded_image, bg_color=None, is_pinned=False):
+        self.round_corners_size = 1
+        self.pixmap = QPixmap()
+        self.pixmap.loadFromData(base64.b64decode(encoded_image), "PNG")
+
+        if not content_rect: # if it's being created for the first time, use the image default size
+            content_rect = self.pixmap.rect()
+        super().__init__(label=" ", content_rect=content_rect, NEP=NEP, bg_color=None, is_pinned=False)
+
+    def set_img_index(self, index):
+        self.img_index = index
+
+    # override mouse events to keep dragging working but skip all Comment-style calculations
+    def mousePressEvent(self, event, passive=False):
+        if self.is_pinned: return
+        QGraphicsItem.mousePressEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        # calculate resize first
+        if self.is_showing_resize_cursor:
+            self.resize_comment( event )
+        else:
+            # if it's not resizing then it's moving
+            if self.is_pinned: return
+            QGraphicsItem.mouseMoveEvent(self, event)
+
+    # override release event
+    def mouseReleaseEvent(self, event, passive=None):
+        # passive flag left there just in case to prevent errors
+        QGraphicsItem.mouseReleaseEvent(self, event)
+
+        # if released while resizing, update manhattanlength
+        if self.is_showing_resize_cursor:
+            self.update_manhattan_length()
+
+        # don't move update anything if pinned, can't drag anyway
+        if self.is_pinned: return
+
+    # override paint
+    def paint(self, painter, option, widget):
+        if self.isSelected():
+            pen      = QPen(COLOR_SELECTED, 2)
+        else:
+            pen      = QPen(QColor(0,0,0,0), 2)
+
+        path = QPainterPath()
+        path.addRoundedRect(self.content_rect, self.round_corners_size, self.round_corners_size)
+        
+        painter.setPen(pen)
+        #painter.fillPath(path, self.bg_color )
+        painter.drawPath(path)
+        painter.drawPixmap(self.content_rect, self.pixmap, self.pixmap.rect())
