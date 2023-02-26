@@ -1,4 +1,4 @@
-import os, json, base64
+import os, json, base64, importlib
 from functools import partial
 from collections import OrderedDict
 from maya import mel, cmds, OpenMayaUI
@@ -9,7 +9,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.13"
+VERSION = "0.1.14"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -116,6 +116,7 @@ class NodeEditorPlus():
         self.override_clear_function()
         self.override_remove_function()
         self.override_graph_function()
+        self.decorate_bookmarks_functions()
 
     @staticmethod
     def is_graph_extended(ned=None):
@@ -184,6 +185,8 @@ class NodeEditorPlus():
                                 } else {
                                     $execute = 0;
                                 }
+                            } else {
+                                $execute = 1;
                             }
 
                             if ($execute){
@@ -290,6 +293,49 @@ class NodeEditorPlus():
                         }
                     }'''
         mel.eval(old_cmd)
+
+    def decorate_bookmarks_functions(self):
+        # adds decorators to handle our custom nodes when bookmarks get loaded or saved
+        def handle_save_decor(function):
+            def wrapper(*args, **kwargs):
+                # same hack original window uses to get new info
+                n0 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
+                output = function(*args, **kwargs) # run original function
+                n1 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
+                newInfos = n1 - n0
+                if len(newInfos):
+                    newInfo = newInfos.pop()
+                    self.save_nep_data_to_bookmark(newInfo)
+                return output
+            return wrapper
+
+        def handle_load_decor(function):
+            def wrapper(*args, **kwargs):
+                # first we confirm if the user really wants to clear the graph, if so, deletes our custom nodes first so Maya doesn't crash
+                from node_editor_plus import node_editor_plus
+                importlib.reload(node_editor_plus)
+                execute = False
+                if node_editor_plus.NodeEditorPlus.is_graph_extended(self.node_editor):
+                    if cmds.confirmDialog( title="Confirm", message="There are Comments or Images in the current Tab.\nLoading a bookmark will delete them, are you sure?\nThis operation is NOT undoable.", button=["Yes","No"], defaultButton="No", cancelButton="No", dismissString="No") == "Yes":
+                        execute = True
+                    else:
+                        execute = False
+                else:
+                    execute = True
+
+                if execute:
+                    node_editor_plus.NodeEditorPlus.clear_graph(self.node_editor)
+                    output = function(*args, **kwargs) # run original function
+                    self.load_nep_data_from_bookmark(args[1])
+                    return output
+            return wrapper
+
+
+        import maya.app.general.nodeEditorBookmarks
+        importlib.reload(maya.app.general.nodeEditorBookmarks)
+        maya.app.general.nodeEditorBookmarks.createBookmark = handle_save_decor(maya.app.general.nodeEditorBookmarks.createBookmark)
+        maya.app.general.nodeEditorBookmarks.loadBookmark   = handle_load_decor(maya.app.general.nodeEditorBookmarks.loadBookmark)
+
 
     def comment_key_callback(self, *args):
         ''' Detects keypresses'''
@@ -626,6 +672,8 @@ class NodeEditorPlus():
         self.restore_clear_function()
         self.restore_remove_function()
         self.restore_graph_function()
+        import maya.app.general.nodeEditorBookmarks
+        importlib.reload(maya.app.general.nodeEditorBookmarks)
 
     def create_nep_data(self, create_string_attr=None, create_string_array_attr=None):
         return_dict = {"created_node":False, "created_attr":False}
@@ -648,6 +696,49 @@ class NodeEditorPlus():
                 return_dict["created_attr"] = True
 
         return return_dict
+
+    def save_nep_data_to_bookmark(self, info_node):
+        attr_name = "NEP_DATA"
+        if cmds.objExists(info_node):
+            if not cmds.attributeQuery(attr_name, node=info_node, exists=True):
+                cmds.addAttr(info_node, ln=attr_name, dataType="string")
+
+            dump_dict = {}
+            dump_dict["bookmark"] = []
+            scene = getCurrentScene(self.node_editor)
+            items_list = scene.items()
+            if items_list:
+                for item in items_list:
+                    item_type = type(item)
+                    if   item_type == custom_nodes.NEPComment:
+                        dump_dict["bookmark"].append( {"nep_type":"comment", "label":item.label,         "pos":{"x":item.pos().x(), "y":item.pos().y()}, "width":item.content_rect.width(), "height":item.content_rect.height(), "bg_color":item.bg_color.name(), "is_pinned":item.is_pinned} )
+                    elif item_type == custom_nodes.NEPImage:
+                        dump_dict["bookmark"].append( {"nep_type":"image",   "img_index":item.img_index, "pos":{"x":item.pos().x(), "y":item.pos().y()}, "width":item.content_rect.width(), "height":item.content_rect.height(), "bg_color":item.bg_color.name(), "is_pinned":item.is_pinned} )
+                cmds.setAttr(info_node+"."+attr_name, json.dumps(dump_dict), type="string")
+
+    def load_nep_data_from_bookmark(self, info_node):
+        attr_name = "NEP_DATA"
+        load_dict = {}
+        if cmds.objExists(info_node):
+            if cmds.attributeQuery(attr_name, node=info_node, exists=True):
+                load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
+            else:
+                return
+
+        scene = getCurrentScene(self.node_editor)
+        for item in load_dict["bookmark"]:
+            if   item["nep_type"] == "comment":
+                nep_item = custom_nodes.NEPComment(label=item["label"], content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
+            elif item["nep_type"] == "image":
+                encoded_image = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")[item["img_index"]]
+                nep_item = custom_nodes.NEPImage(label="", encoded_image=encoded_image, content_rect=QRectF(0, 0, item["width"]-20, item["height"]-20), NEP=self, bg_color=item["bg_color"], is_pinned=item["is_pinned"])
+                nep_item.set_img_index(item["img_index"])
+            scene.addItem(nep_item)
+
+            if item["nep_type"] == "comment":
+                nep_item.setZValue(-1)
+            nep_item.setPos(item["pos"]["x"], item["pos"]["y"])
+
 
     def save_nep_data_to_scene(self):
         tabs_dict = OrderedDict()
@@ -693,7 +784,7 @@ class NodeEditorPlus():
 
         if cmds.objExists(NODE_EDITOR_CFG):
             if cmds.attributeQuery("NEP_DATA", node=NODE_EDITOR_CFG, exists=True):
-                load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+'.NEP_DATA'))
+                load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+".NEP_DATA"))
             else:
                 return
 
