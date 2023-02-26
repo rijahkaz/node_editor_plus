@@ -1,4 +1,5 @@
 import importlib
+from functools import partial
 from maya import cmds, mel
 
 def override_clear_function(node_editor):
@@ -12,14 +13,19 @@ def override_clear_function(node_editor):
                         python("import importlib; importlib.reload(node_editor_plus)");
                         if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+node_editor+'''\\")")`)
                         {
-                            if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nAre you sure you want to clear the graph?\\nThis operation is NOT undoable."
-                                                    -button "Yes" -button "No" -defaultButton "No"
-                                                    -cancelButton "No" -dismissString "No"` == "Yes")
-                            {
+                            if (`python("node_editor_plus.NodeEditorPlus.is_graph_suppressed()")` == 1) {
                                 python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
                                 $execute = 1;
                             } else {
-                                $execute = 0;
+                                if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nAre you sure you want to clear the graph?\\nThis operation is NOT undoable."
+                                                        -button "Yes" -button "No" -defaultButton "No"
+                                                        -cancelButton "No" -dismissString "No"` == "Yes")
+                                {
+                                    python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                    $execute = 1;
+                                } else {
+                                    $execute = 0;
+                                }
                             }
                         } else {
                             $execute = 1;
@@ -83,14 +89,19 @@ def override_graph_function(node_editor):
                             {
                                 if (`python("node_editor_plus.NodeEditorPlus.clean_selection(\\"'''+node_editor+'''\\")")`)
                                 {
-                                    if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nGraphing will delete them, are you sure?\\nThis operation is NOT undoable."
-                                                    -button "Yes" -button "No" -defaultButton "No"
-                                                    -cancelButton "No" -dismissString "No"` == "Yes")
-                                    {
+                                    if (`python("node_editor_plus.NodeEditorPlus.is_graph_suppressed()")` == 1) {
                                         python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
                                         $execute = 1;
                                     } else {
-                                        $execute = 0;
+                                        if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nGraphing will delete them, are you sure?\\nThis operation is NOT undoable."
+                                                        -button "Yes" -button "No" -defaultButton "No"
+                                                        -cancelButton "No" -dismissString "No"` == "Yes")
+                                        {
+                                            python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                            $execute = 1;
+                                        } else {
+                                            $execute = 0;
+                                        }
                                     }
                                 } else {
                                     python("node_editor_plus.NodeEditorPlus.static_show_message(\\"'''+node_editor+'''\\", \\"Cannot graph Comment or Image nodes\\", 0, 3)");
@@ -155,10 +166,13 @@ def decorate_bookmarks_functions(NEP):
             importlib.reload(node_editor_plus)
             execute = False
             if node_editor_plus.NodeEditorPlus.is_graph_extended(NEP.node_editor):
-                if cmds.confirmDialog( title="Confirm", message="There are Comments or Images in the current Tab.\nLoading a bookmark will delete them, are you sure?\nThis operation is NOT undoable.", button=["Yes","No"], defaultButton="No", cancelButton="No", dismissString="No") == "Yes":
+                if node_editor_plus.NodeEditorPlus.is_graph_suppressed():
                     execute = True
                 else:
-                    execute = False
+                    if cmds.confirmDialog( title="Confirm", message="There are Comments or Images in the current Tab.\nLoading a bookmark will delete them, are you sure?\nThis operation is NOT undoable.", button=["Yes","No"], defaultButton="No", cancelButton="No", dismissString="No") == "Yes":
+                        execute = True
+                    else:
+                        execute = False
             else:
                 execute = True
 
@@ -197,3 +211,19 @@ def decorate_bookmarks_functions(NEP):
 def restore_bookmarks_functions():
     import maya.app.general.nodeEditorBookmarks
     importlib.reload(maya.app.general.nodeEditorBookmarks)
+
+def add_extra_option(NEP):
+    # find menu
+    options_menu = None
+    for menu in cmds.lsUI(menus=True):
+        menu_label = cmds.menu(menu, query=True, label=True)
+        menu_items = cmds.menu(menu, query=True, itemArray=True)
+        if "Options" in menu_label and menu_items:
+            if NEP.node_editor+"RSI" in menu_items:
+                options_menu = menu
+                break
+
+    supress_mi = NEP.node_editor+"NEPSCD" #Node Editor Plus Supress Confirm Dialogs
+    if options_menu:
+        if not supress_mi in menu_items:
+            cmds.menuItem( label="Node Editor Plus: Supress Confirm Dialogs", checkBox=False, parent=options_menu, command=partial(NEP.suppress_checkbox_toggled, supress_mi) )

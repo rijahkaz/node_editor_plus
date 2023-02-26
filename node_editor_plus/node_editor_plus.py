@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.18"
+VERSION = "0.1.19"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -55,6 +55,7 @@ class NodeEditorPlus():
         self._drag_manager = custom_nodes.NEPDragManager()
         self.aligner = custom_nodes.NEPNodeAligner()
         self.icons_path = os.path.join(os.path.dirname(__file__), "icons")
+        self.initialize_suppress_file_info()
 
     def tab_change_callback(self):
         """ force new tabs to also recognize our hotkeys, this is weird since there is only 1 node editor
@@ -128,6 +129,24 @@ class NodeEditorPlus():
         overrides.override_remove_function(self.node_editor)
         overrides.override_graph_function(self.node_editor)
         overrides.decorate_bookmarks_functions(self)
+        overrides.add_extra_option(self)
+
+    def initialize_suppress_file_info(self):
+        # creates it as false if not existing when editor launches
+        val = cmds.fileInfo("NEP_suppress_confirm_dialogs", query=True)
+        if not val:
+            cmds.fileInfo("NEP_suppress_confirm_dialogs", 0)
+
+    def suppress_checkbox_toggled(self, *args):
+        if args[1]:
+            val = 1
+        else:
+            val = 0
+        cmds.fileInfo('NEP_suppress_confirm_dialogs', val)
+
+    @staticmethod
+    def is_graph_suppressed():
+        return cmds.fileInfo("NEP_suppress_confirm_dialogs", query=True)[0]
 
     @staticmethod
     def is_graph_extended(ned=None):
