@@ -9,7 +9,7 @@ from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
 
 # version tracking
-VERSION = "0.1.14"
+VERSION = "0.1.15"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -103,11 +103,14 @@ class NodeEditorPlus():
 
         cmds.showWindow(WINDOW_NAME)
 
+        # optimize images on launch
+        self.optimize_images_data()
         # hack to not crash Maya, check for other ways
         QTimer.singleShot(500, self.load_nep_data_from_scene)
         #print(self.node_editor)
 
         # tracks mouse position on certain actions like graphing in/out connections
+        # UNUSED (as of v0.1.15)
         self._mouse_pos_filter = NEPMousePosFilter(self)
         scene = getCurrentScene(self.node_editor)
         scene.installEventFilter(self._mouse_pos_filter)
@@ -266,7 +269,6 @@ class NodeEditorPlus():
                             }
 
                             if ($execute){
-                                print("EXEC");
                                 if ($upstream && $downstream) {
                                     nodeEdGraphControl($ned, "nodeEditor -e -rfs -ups -ds ");
                                 } else if ($upstream) {
@@ -298,9 +300,13 @@ class NodeEditorPlus():
         # adds decorators to handle our custom nodes when bookmarks get loaded or saved
         def handle_save_decor(function):
             def wrapper(*args, **kwargs):
+                # make sure code is pointing to right editor
+                args_list = list(args)
+                args_list[0] = self.node_editor
+
                 # same hack original window uses to get new info
                 n0 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
-                output = function(*args, **kwargs) # run original function
+                output = function(*args_list, **kwargs) # run original function
                 n1 = set(cmds.ls(type='nodeGraphEditorBookmarkInfo'))
                 newInfos = n1 - n0
                 if len(newInfos):
@@ -325,8 +331,11 @@ class NodeEditorPlus():
 
                 if execute:
                     node_editor_plus.NodeEditorPlus.clear_graph(self.node_editor)
-                    output = function(*args, **kwargs) # run original function
-                    self.load_nep_data_from_bookmark(args[1])
+                    # make sure code is pointing to right editor
+                    args_list = list(args)
+                    args_list[0] = self.node_editor
+                    output = function(*args_list, **kwargs) # run original function
+                    self.load_nep_data_from_bookmark(args_list[1])
                     return output
             return wrapper
 
@@ -619,6 +628,40 @@ class NodeEditorPlus():
         view = getCurrentView(self.node_editor)
         center = view.mapToScene(view.viewport().rect().center())
         img.setPos( center.x()-75, center.y()-25 )
+
+    def optimize_images_data(self):
+        # checks all images being used in the scene, clear binary data of unused indices
+        attr_name = "NEP_DATA"
+        used_indices = []
+        if cmds.objExists(NODE_EDITOR_CFG): # only do this if we have a CFG node, otherwise there are no images stored in the scene
+            if cmds.attributeQuery(attr_name, node=NODE_EDITOR_CFG, exists=True):
+                load_dict = json.loads(cmds.getAttr(NODE_EDITOR_CFG+"."+attr_name))
+
+                for tab_name in load_dict:
+                    for item in load_dict[tab_name]:
+                        if item["nep_type"] == "image":
+                            if not item["img_index"] in used_indices:
+                                used_indices.append(item["img_index"])
+
+            bookmark_infos = cmds.ls(type='nodeGraphEditorBookmarkInfo')
+            if bookmark_infos:
+                for info_node in bookmark_infos:
+                    if cmds.attributeQuery(attr_name, node=info_node, exists=True):
+                        load_dict = json.loads(cmds.getAttr(info_node+"."+attr_name))
+                        for item in load_dict["bookmark"]:
+                            if item["nep_type"] == "image":
+                                if not item["img_index"] in used_indices:
+                                    used_indices.append(item["img_index"])
+
+            img_array = cmds.getAttr(NODE_EDITOR_CFG+".IMG_LIST")
+            size = len(img_array)
+            for i in range(size):
+                if i not in used_indices:
+                    img_array[i] = "" # clear what was there
+
+            cmds.setAttr(NODE_EDITOR_CFG+".IMG_LIST", size, *img_array, type="stringArray")
+
+
 
     def graph_connection(self, conn_type="output"):
         plug_under_cursor = cmds.nodeEditor(self.node_editor, feedbackPlug=True, query=True)
