@@ -41,6 +41,7 @@ class NEPComment(QGraphicsItem):
     round_corners_size = 10
     label_rect = None
     label  = ""
+    bg_color = None
     Qlabel = None
     content_rect    = None
     label_text_edit = None
@@ -580,3 +581,96 @@ class NEPImage(NEPComment):
         #painter.fillPath(path, self.bg_color )
         painter.drawPath(path)
         painter.drawPixmap(self.content_rect, self.pixmap, self.pixmap.rect())
+
+class NEPSearchBox(QDialog):
+    initial_width  = 450
+    initial_height = 1
+    comments_dict = {}
+    buttons_list  = []
+    NEP = None
+    def __init__(self, NEP, comments_list, parent):
+        super(NEPSearchBox, self).__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        size_policy = QSizePolicy()
+        size_policy.setHorizontalPolicy(QSizePolicy.Expanding)
+        self.setSizePolicy(size_policy)
+
+        mouse_pos = QCursor.pos()
+        self.NEP = NEP
+
+        self.main_layout = QVBoxLayout()
+
+        self.scroll = QScrollArea()
+        self.widget = QWidget()
+        self.layout = QVBoxLayout()
+
+        self.filter_line_edit = QLineEdit()
+        self.filter_line_edit.setFixedWidth(self.initial_width)
+        self.filter_line_edit.setPlaceholderText("Type a substring of a comment to filter")
+        self.filter_line_edit.textChanged.connect(self.apply_comment_filter)
+        self.layout.addWidget(self.filter_line_edit)
+
+        if not comments_list:
+            # show simple layout
+            self.filter_line_edit.setText("No comment nodes found in current Tab")
+            self.filter_line_edit.setEnabled(False)
+            self.setLayout(self.layout)
+        else:
+            # build the full scroll area
+            for comment in comments_list:
+                self.comments_dict[comment.label] = comment
+                new_com_btn = QPushButton(comment.label)
+                new_com_btn.setStyleSheet("color: {}".format(comment.bg_color.name()))
+                new_com_btn.clicked.connect(partial(self.NEP.focus_item,comment))
+                self.buttons_list.append(new_com_btn)
+                self.layout.addWidget(new_com_btn)
+            self.layout.addStretch() # only add stretch if comments
+
+            self.widget.setLayout(self.layout)
+
+            self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            self.scroll.setWidgetResizable(True)
+            self.scroll.setFrameShape(QFrame.NoFrame)
+            self.scroll.setWidget(self.widget)
+
+            self.main_layout.addWidget(self.scroll)
+            self.setLayout(self.main_layout)
+            self.initial_height = 400
+        self.setGeometry( mouse_pos.x()+20, mouse_pos.y(), self.initial_width, self.initial_height)
+
+
+    def apply_comment_filter(self, filter_text):
+        if filter_text:
+            for btn in self.buttons_list:
+                btn.setVisible(False)
+
+            for btn in self.buttons_list:
+                if filter_text in btn.text():
+                    btn.setVisible(True)
+        else:
+            for btn in self.buttons_list:
+                btn.setVisible(True)
+
+    def keyPressEvent( self, e ):
+        # press ESC/TAB/ENTER closes UI
+        if e.key() == Qt.Key_Escape or e.key() == Qt.Key_Tab or e.key() == Qt.Key_Enter:
+            self.reject()
+
+    def leaveEvent( self, e ):
+        # leaving the UI with mouse pointer closes it
+        self.reject()
+
+    # static method to create the dialog
+    @staticmethod
+    def getResult(NEP, comments_list, parent):
+        dialog = NEPSearchBox(NEP, comments_list, parent)
+        if not comments_list:  # sets arbitrary height
+            dialog_height = 20
+        else:
+            dialog_height = 350
+
+        result = dialog.exec_()
+        return False
+
+def show_NEPSearchBox(NEP, comments_list, parent):
+    return NEPSearchBox.getResult(NEP, comments_list, parent)

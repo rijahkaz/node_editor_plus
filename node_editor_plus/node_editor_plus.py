@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.19"
+VERSION = "0.1.20"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -200,11 +200,10 @@ class NodeEditorPlus():
         ''' Detects keypresses'''
         node_editor = args[0]
         key_pressed = args[1]
-        enter = True
-
-        print(key_pressed)
 
         mods = cmds.getModifiers()
+        print(key_pressed, "mods:", mods)
+        
         # create comment on selected nodes
         if key_pressed == "C":
             self.create_comment()
@@ -216,6 +215,14 @@ class NodeEditorPlus():
         # change background color for selected comment(s)
         elif key_pressed == "B":
             self.color_comment()
+            return True
+        # add image
+        elif (mods & 4) > 0 and key_pressed == "I":
+            self.pick_new_image()
+            return True
+        # search comments
+        elif (mods & 4) > 0 and key_pressed == "F":
+            self.show_search_menu()
             return True
         # graph input connection
         elif key_pressed == "I":
@@ -279,7 +286,7 @@ class NodeEditorPlus():
         a.setToolTip(tooltip) # hovering tooltip
         a.setStatusTip("Node Editor Plus: {}".format(tooltip)) # Maya's help line description
         a.triggered.connect(command)
-        toolbar.addAction( a )
+        toolbar.addAction(a)
 
     def create_sidebar(self):
         # Reparents old NodeEditor into a new horizontal layout so we can add a sidebar to the window
@@ -305,6 +312,7 @@ class NodeEditorPlus():
         self.toolbar_add_button(self.left_toolbar, "Delete Item",          "comment_remove.svg", self.delete_item)
         self.toolbar_add_button(self.left_toolbar, "Change Comment Color", "comment_color.svg",  self.color_comment)
         self.toolbar_add_button(self.left_toolbar, "Add Image to Graph",   "image_add.svg",      self.pick_new_image)
+        self.toolbar_add_button(self.left_toolbar, "Search Comments",      ":/search.png",       self.show_search_menu)
         
         # align buttons
         self.left_toolbar.addSeparator()
@@ -329,6 +337,22 @@ class NodeEditorPlus():
         self.horizontal_main_layout.addWidget(nodeEdPane)
 
 
+    def show_search_menu(self):
+        scene = getCurrentScene(self.node_editor)
+        comments_list = []
+        if scene:
+            scene_items = scene.items()
+            for item in scene_items:
+                if type(item) == custom_nodes.NEPComment:
+                    comments_list.append(item)
+
+        self.search_box = custom_nodes.show_NEPSearchBox(NEP=self, comments_list=comments_list, parent=self.left_toolbar)
+
+    def focus_item(self, item):
+        # called by the search menu
+        view = getCurrentView(self.node_editor)
+        view.resetTransform() # resets zoom level to default
+        view.centerOn(item)
 
     def alignNodes(self, alignIn):
         selected_items = self.get_selected_items()
@@ -441,7 +465,7 @@ class NodeEditorPlus():
 
     def pick_new_image(self):
         image_path = QFileDialog.getOpenFileName(parent=None, caption='Please select an image file', filter="*.png")
-        if not image_path:
+        if not image_path[0]:
             return
 
         try:
