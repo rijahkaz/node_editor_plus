@@ -708,7 +708,7 @@ class NEPSearchBox(QDialog):
                 btn.setVisible(False)
 
             for btn in self.buttons_list:
-                if filter_text in btn.text():
+                if filter_text.lower() in btn.text().lower():
                     btn.setVisible(True)
         else:
             for btn in self.buttons_list:

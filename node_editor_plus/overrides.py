@@ -166,7 +166,7 @@ def decorate_bookmarks_functions(NEP):
             importlib.reload(node_editor_plus)
             execute = False
             if node_editor_plus.NodeEditorPlus.is_graph_extended(NEP.node_editor):
-                if node_editor_plus.NodeEditorPlus.is_graph_suppressed():
+                if node_editor_plus.NodeEditorPlus.is_graph_suppressed() == "1":
                     execute = True
                 else:
                     if cmds.confirmDialog( title="Confirm", message="There are Comments or Images in the current Tab.\nLoading a bookmark will delete them, are you sure?\nThis operation is NOT undoable.", button=["Yes","No"], defaultButton="No", cancelButton="No", dismissString="No") == "Yes":

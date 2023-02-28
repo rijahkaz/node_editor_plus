@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.22"
+VERSION = "0.1.23"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -176,8 +176,13 @@ class NodeEditorPlus():
                     if type(item) in [custom_nodes.NEPComment, custom_nodes.NEPImage]:
                         item.setSelected(False)
 
+            # no selected custom items
             if not scene.selectedItems():
-                return False
+                # but are there Maya nodes selected?
+                if cmds.ls(sl=True):
+                    return True
+                else:
+                    return False
             else:
                 return True
     @staticmethod
