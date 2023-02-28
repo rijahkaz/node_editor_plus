@@ -376,11 +376,14 @@ class NEPNodeAligner():
 
     def getFullLength(self, axis, graphicsList):
         fullLength = 0
+        positionSize = 0
         for node in graphicsList:
             if axis == "x":
-                fullLength = fullLength + node.boundingRect().width()
+                positionSize = node.pos().x() + node.boundingRect().width()
+                fullLength += positionSize
             elif axis == "y":
-                fullLength = fullLength + node.boundingRect().height()
+                positionSize = node.pos().y() + node.boundingRect().height()
+                fullLength += positionSize
     
         return fullLength
 
@@ -413,6 +416,58 @@ class NEPNodeAligner():
                values.append(allVals)
                allVals = []
            return values
+
+    def filterNodes(self, graphicsList):
+        allowedNodes = []
+        for node in graphicsList:
+            if type(node) != QGraphicsPathItem:
+                allowedNodes.append(node)
+        return allowedNodes
+
+
+    def sort_by_position(self, axis, graphicsList):
+        valueNodes = []
+        sortedNodes = []
+        nodes = []
+        index = 0
+
+        if axis == "x":
+            valueNodes = [(node, node.pos().x()) for node in self.filterNodes(graphicsList)]  
+        elif axis == "y":
+            valueNodes = [(node, node.pos().y()) for node in self.filterNodes(graphicsList)]
+
+        sortedNodes = sorted(valueNodes, key=lambda x: x[1])
+
+        for nodeTuple in sortedNodes:
+            nodes.append(nodeTuple[0])
+        print("Nodes:", nodes)
+
+        return nodes
+
+
+
+    def get_space_between(self, axis, graphicsList):
+        fLenght = 0
+        spaceBetween = 0
+        widths = 0
+        heights = 0
+        if axis == "x":
+            mLeft = self.getMostLeft(self.get_all_positions(graphicsList))
+            mRight = self.getMostRight(self.get_all_values(graphicsList))
+            fLenght = mLeft - mRight
+            for node in graphicsList:
+                widths += node.boundingRect().width()
+            spaceBetween = fLenght - widths / len(graphicsList) - 1
+        elif axis == "y":
+            mTop = self.getMostTop(self.get_all_positions(graphicsList))
+            mBottom = self.getMostBottom(self.get_all_values(graphicsList))
+            fLenght = mTop - mBottom
+            for node in graphicsList:
+                heights += node.boundingRect().height()
+            spaceBetween = fLenght - heights / len(graphicsList) - 1
+
+        return spaceBetween
+        
 
     def getTop(self, positionList):  #+Y
         topMostY = min(position[1] for position in positionList)
@@ -451,76 +506,88 @@ class NEPNodeAligner():
         return rightMostX
 
     def leftAlign(self, graphicsList):
-        xValue = self.getMostLeft(self.get_all_positions(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        xValue = self.getMostLeft(self.get_all_positions(values))
         #print(xValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(xValue, node.pos().y())
 
     def centerAlign(self, graphicsList):
-        xValue = self.getCenter(self.getMostLeft(self.get_all_positions(graphicsList)), self.getMostRight(self.get_all_positions(graphicsList)))
+        values = self.sort_by_position("x", graphicsList)
+        xValue = self.getCenter(self.getMostLeft(self.get_all_positions(values)), self.getMostRight(self.get_all_positions(values)))
         #print(xValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(xValue, node.pos().y())
 
     def rightAlign(self, graphicsList):
-        widthValue = self.getMostRight(self.get_all_values(graphicsList))
-        for node in graphicsList:
+        values = self.sort_by_position("x", graphicsList)
+        widthValue = self.getMostRight(self.get_all_values(values))
+        for node in values:
             nodeWidth = node.boundingRect().width()
             xValue = widthValue - nodeWidth
             node.setPos(xValue, node.pos().y())
           
 
     def topAlign(self, graphicsList):
-        yValue = self.getTop(self.get_all_positions(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        yValue = self.getTop(self.get_all_positions(values))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(node.pos().x(), yValue)
 
     def middleAlign(self, graphicsList):
-        yValue = self.getMiddle(self.getMostTop(self.get_all_positions(graphicsList)), self.getMostBottom(self.get_all_positions(graphicsList)))
+        values = self.sort_by_position("x", graphicsList)
+        yValue = self.getMiddle(self.getMostTop(self.get_all_positions(values)), self.getMostBottom(self.get_all_positions(values)))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(node.pos().x(), yValue)
 
     def bottomAlign(self, graphicsList):
-        heightValue = self.getBottom(self.get_all_values(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        heightValue = self.getBottom(self.get_all_values(values))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             nodeHieight = node.boundingRect().height()
             yValue = heightValue - nodeHieight
             node.setPos(node.pos().x(), yValue)
 
-    def horizontalAlign(self, graphicsList):
+    def horizontalDistribute(self, graphicsList):
+        values = self.sort_by_position("x", graphicsList)
         xValue = 0
-        yValue = 0
-        #Get Y Value: Will be the same for all.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("x", graphicsList)
+        index= 0
         #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get X position for the first node.
-        xValue = self.getInitialNodeValue("x", graphicsList)
+        spaceBetween = self.get_space_between("x", values)
+        print("spaceBetween:", spaceBetween)
+        #Ititate through list and asign values.
+        for node in values:
+            if node != values[0]:
+                xValue = values[index].pos().x() + values[index].boundingRect().width() + spaceBetween
+                index+= 1
+            else:
+                xValue = node.pos().x()
+
+
+            print("xValue:",xValue)
+            node.setPos(xValue, node.pos().y())
+            print("spaceBetween:", spaceBetween,"xValue:", xValue)
+
+    def verticalDistribute(self, graphicsList):
+        values = self.sort_by_position("x", graphicsList)
+        yValue = 0
+        #Get gap between Nodes.
+        spaceBetween = self.get_space_between("y", values)
+        print("spaceBetween:", spaceBetween)
         #Ititate through list and asign values.
         for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I add the width because I want a wider gap between them horizontal
-            xValue += node.boundingRect().width() + spaceBetween 
-    def verticalAlign(self, graphicsList):
-        xValue = 0
-        yValue = 0
-        #Get X Value: Will be the same for all.
-        xValue = self.getInitialNodeValue("x", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("y", graphicsList)
-        #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get Y position for the first node.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I did not add the height because they would be too far apart.
-            yValue += node.boundingRect().height() + spaceBetween
+            print(node)
+            yValue = node.pos().y()
+            if node != graphicsList[0]:
+                yValue += spaceBetween
+            print("yValue:",yValue)
+            node.setPos(node.pos().x(), yValue)
+            print("spaceBetween:", spaceBetween,"yValue:", yValue)
+
+
 
 
 class NEPImage(NEPComment):

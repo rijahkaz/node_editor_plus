@@ -373,9 +373,9 @@ class NodeEditorPlus():
         elif alignIn == "right":
             self.aligner.rightAlign(selected_items)
         elif alignIn == "horizontal":
-            self.aligner.horizontalAlign(selected_items)
+            self.aligner.horizontalDistribute(selected_items)
         elif alignIn == "vertical":
-            self.aligner.verticalAlign(selected_items)
+            self.aligner.verticalDistribute(selected_items)
 
     def hide_default_HUD_message(self):
         cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
