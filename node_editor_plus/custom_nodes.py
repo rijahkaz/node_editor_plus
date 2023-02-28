@@ -1,5 +1,3 @@
-import base64
-from functools import partial
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
@@ -38,10 +36,8 @@ class NEPLabelFilter(QObject):
 class NEPComment(QGraphicsItem):
     # Our new brand Comment class
     _NEP = None # reference to our Node Editor Plus class
-    round_corners_size = 10
     label_rect = None
     label  = ""
-    bg_color = None
     Qlabel = None
     content_rect    = None
     label_text_edit = None
@@ -53,7 +49,6 @@ class NEPComment(QGraphicsItem):
     temp_item_list = []
     def __init__(self, label, content_rect, NEP, bg_color=None, is_pinned=False):
         super().__init__()
-        self.node_type = type(self)
         self._NEP = NEP
         self.pin_icon_off = QIcon(":/pinItem.png")
         self.pin_icon_on  = QIcon(":/pinON.png")
@@ -64,8 +59,8 @@ class NEPComment(QGraphicsItem):
         self.setAcceptHoverEvents(True)
 
         self.content_rect = QRectF(-10, -10, content_rect.width()+20, content_rect.height()+20)
-        self.update_manhattan_length()
-        if not label and self.node_type == NEPComment:
+        self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
+        if not label:
             label = "This is a new comment"
         self.set_label(label)
 
@@ -75,12 +70,12 @@ class NEPComment(QGraphicsItem):
             self.bg_color = COLOR_DEFAULT
         else:
             self.bg_color = QColor(bg_color)
-            if self.node_type == NEPComment:
-                self.bg_color.setAlpha(50)
-                self.update_label_color(self.bg_color)
+            self.bg_color.setAlpha(50)
+            self.update_label_color(self.bg_color)
 
-    def update_manhattan_length(self):
-        self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
+        
+
+
 
     def add_child(self, item):
         # On start drag, parents and fixes position of overlapping nodes
@@ -155,8 +150,8 @@ class NEPComment(QGraphicsItem):
             pen      = QPen(Qt.black, 2)
 
         path = QPainterPath()
-        path.addRoundedRect(self.content_rect, self.round_corners_size, self.round_corners_size)
-
+        path.addRoundedRect(self.content_rect, 10, 10)
+        
         painter.setPen(pen)
         painter.fillPath(path, self.bg_color )
         painter.drawPath(path)
@@ -213,15 +208,10 @@ class NEPComment(QGraphicsItem):
         colliding_items = self.collidingItems()
         if colliding_items:
             for item in colliding_items:
-                item_type = type(item)
-                if item_type == QGraphicsItem or item_type == NEPImage:
+                if type(item) == QGraphicsItem:
                     if item not in children:
-                        if item_type == NEPImage:
-                            if not item.is_pinned:
-                                self.add_child(item)
-                        else: # this is a native Maya node
-                            if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
-                                self.add_child(item)
+                        if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
+                            self.add_child(item)
 
 
     def drag_update_hack(self):
@@ -257,8 +247,7 @@ class NEPComment(QGraphicsItem):
 
         # if released while resizing, update manhattanlength
         if self.is_showing_resize_cursor:
-            self.update_manhattan_length()
-            self.hide_resize_cursor() # force disable resize cursor
+            self.manhattanLength = self.content_rect.bottomRight().manhattanLength()
 
         # don't move update anything if pinned, can't drag anyway
         if self.is_pinned: return
@@ -273,8 +262,7 @@ class NEPComment(QGraphicsItem):
                 children = self.childItems()
                 can_exit = True
                 for item in children:
-                    item_type = type(item)
-                    if item_type == QGraphicsItem or item_type == NEPImage:
+                    if type(item) == QGraphicsItem:
                         self.remove_child(item)
                         can_exit = False
                         break
@@ -296,7 +284,7 @@ class NEPComment(QGraphicsItem):
         self.is_showing_resize_cursor = False
 
     def hoverMoveEvent(self, event):
-        if event.pos().manhattanLength() > self.manhattanLength - 24:
+        if event.pos().manhattanLength() > self.manhattanLength - 12:
             if not self.is_showing_resize_cursor:
                 self.show_resize_cursor()
         else:
@@ -376,11 +364,14 @@ class NEPNodeAligner():
 
     def getFullLength(self, axis, graphicsList):
         fullLength = 0
+        positionSize = 0
         for node in graphicsList:
             if axis == "x":
-                fullLength = fullLength + node.boundingRect().width()
+                positionSize = node.pos().x() + node.boundingRect().width()
+                fullLength += positionSize
             elif axis == "y":
-                fullLength = fullLength + node.boundingRect().height()
+                positionSize = node.pos().y() + node.boundingRect().height()
+                fullLength += positionSize
     
         return fullLength
 
@@ -413,6 +404,58 @@ class NEPNodeAligner():
                values.append(allVals)
                allVals = []
            return values
+
+    def filterNodes(self, graphicsList):
+        allowedNodes = []
+        for node in graphicsList:
+            if type(node) != QGraphicsPathItem:
+                allowedNodes.append(node)
+        return allowedNodes
+
+
+    def sort_by_position(self, axis, graphicsList):
+        valueNodes = []
+        sortedNodes = []
+        nodes = []
+        index = 0
+
+        if axis == "x":
+            valueNodes = [(node, node.pos().x()) for node in self.filterNodes(graphicsList)]  
+        elif axis == "y":
+            valueNodes = [(node, node.pos().y()) for node in self.filterNodes(graphicsList)]
+
+        sortedNodes = sorted(valueNodes, key=lambda x: x[1])
+
+        for nodeTuple in sortedNodes:
+            nodes.append(nodeTuple[0])
+        print("Nodes:", nodes)
+
+        return nodes
+
+
+
+    def get_space_between(self, axis, graphicsList):
+        fLenght = 0
+        spaceBetween = 0
+        widths = 0
+        heights = 0
+        if axis == "x":
+            mLeft = self.getMostLeft(self.get_all_positions(graphicsList))
+            mRight = self.getMostRight(self.get_all_values(graphicsList))
+            fLenght = mLeft - mRight
+            for node in graphicsList:
+                widths += node.boundingRect().width()
+            spaceBetween = fLenght - widths / len(graphicsList) - 1
+        elif axis == "y":
+            mTop = self.getMostTop(self.get_all_positions(graphicsList))
+            mBottom = self.getMostBottom(self.get_all_values(graphicsList))
+            fLenght = mTop - mBottom
+            for node in graphicsList:
+                heights += node.boundingRect().height()
+            spaceBetween = fLenght - heights / len(graphicsList) - 1
+
+        return spaceBetween
+        
 
     def getTop(self, positionList):  #+Y
         topMostY = min(position[1] for position in positionList)
@@ -451,226 +494,84 @@ class NEPNodeAligner():
         return rightMostX
 
     def leftAlign(self, graphicsList):
-        xValue = self.getMostLeft(self.get_all_positions(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        xValue = self.getMostLeft(self.get_all_positions(values))
         #print(xValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(xValue, node.pos().y())
 
     def centerAlign(self, graphicsList):
-        xValue = self.getCenter(self.getMostLeft(self.get_all_positions(graphicsList)), self.getMostRight(self.get_all_positions(graphicsList)))
+        values = self.sort_by_position("x", graphicsList)
+        xValue = self.getCenter(self.getMostLeft(self.get_all_positions(values)), self.getMostRight(self.get_all_positions(values)))
         #print(xValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(xValue, node.pos().y())
 
     def rightAlign(self, graphicsList):
-        widthValue = self.getMostRight(self.get_all_values(graphicsList))
-        for node in graphicsList:
+        values = self.sort_by_position("x", graphicsList)
+        widthValue = self.getMostRight(self.get_all_values(values))
+        for node in values:
             nodeWidth = node.boundingRect().width()
             xValue = widthValue - nodeWidth
             node.setPos(xValue, node.pos().y())
           
 
     def topAlign(self, graphicsList):
-        yValue = self.getTop(self.get_all_positions(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        yValue = self.getTop(self.get_all_positions(values))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(node.pos().x(), yValue)
 
     def middleAlign(self, graphicsList):
-        yValue = self.getMiddle(self.getMostTop(self.get_all_positions(graphicsList)), self.getMostBottom(self.get_all_positions(graphicsList)))
+        values = self.sort_by_position("x", graphicsList)
+        yValue = self.getMiddle(self.getMostTop(self.get_all_positions(values)), self.getMostBottom(self.get_all_positions(values)))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             node.setPos(node.pos().x(), yValue)
 
     def bottomAlign(self, graphicsList):
-        heightValue = self.getBottom(self.get_all_values(graphicsList))
+        values = self.sort_by_position("x", graphicsList)
+        heightValue = self.getBottom(self.get_all_values(values))
         #print(yValue)
-        for node in graphicsList:
+        for node in values:
             nodeHieight = node.boundingRect().height()
             yValue = heightValue - nodeHieight
             node.setPos(node.pos().x(), yValue)
 
-    def horizontalAlign(self, graphicsList):
+    def horizontalDistribute(self, graphicsList):
+        values = self.sort_by_position("x", graphicsList)
         xValue = 0
-        yValue = 0
-        #Get Y Value: Will be the same for all.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("x", graphicsList)
+        index= 0
         #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get X position for the first node.
-        xValue = self.getInitialNodeValue("x", graphicsList)
+        spaceBetween = self.get_space_between("x", values)
+        print("spaceBetween:", spaceBetween)
+        #Ititate through list and asign values.
+        for node in values:
+            if node != values[0]:
+                xValue = values[index].pos().x() + values[index].boundingRect().width() + spaceBetween
+                index+= 1
+            else:
+                xValue = node.pos().x()
+
+
+            print("xValue:",xValue)
+            node.setPos(xValue, node.pos().y())
+            print("spaceBetween:", spaceBetween,"xValue:", xValue)
+
+    def verticalDistribute(self, graphicsList):
+        values = self.sort_by_position("x", graphicsList)
+        yValue = 0
+        #Get gap between Nodes.
+        spaceBetween = self.get_space_between("y", values)
+        print("spaceBetween:", spaceBetween)
         #Ititate through list and asign values.
         for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I add the width because I want a wider gap between them horizontal
-            xValue += node.boundingRect().width() + spaceBetween 
-    def verticalAlign(self, graphicsList):
-        xValue = 0
-        yValue = 0
-        #Get X Value: Will be the same for all.
-        xValue = self.getInitialNodeValue("x", graphicsList)
-        #Get full length of nodes selected.
-        fLen = self.getFullLength("y", graphicsList)
-        #Get gap between Nodes.
-        spaceBetween = fLen / len(graphicsList) - 1
-        #Get Y position for the first node.
-        yValue = self.getInitialNodeValue("y", graphicsList)
-        for node in graphicsList:
-            node.setPos(xValue, yValue)
-            #Here I did not add the height because they would be too far apart.
-            yValue += node.boundingRect().height() + spaceBetween
+            print(node)
+            yValue = node.pos().y()
+            if node != graphicsList[0]:
+                yValue += spaceBetween
+            print("yValue:",yValue)
+            node.setPos(node.pos().x(), yValue)
+            print("spaceBetween:", spaceBetween,"yValue:", yValue)
 
-
-class NEPImage(NEPComment):
-    ''' Dragabble Image
-    differences: has no label, cannot drag other nodes, can be dragged by comments
-    '''
-    pixmap = None
-    img_index = -1 # saves img index to rebuild graph
-    def __init__(self, label, content_rect, NEP, encoded_image, bg_color=None, is_pinned=False):
-        self.round_corners_size = 1
-        self.pixmap = QPixmap()
-        self.pixmap.loadFromData(base64.b64decode(encoded_image), "PNG")
-
-        if not content_rect: # if it's being created for the first time, use the image default size
-            content_rect = self.pixmap.rect()
-        super().__init__(label=" ", content_rect=content_rect, NEP=NEP, bg_color=None, is_pinned=False)
-
-    def set_img_index(self, index):
-        self.img_index = index
-
-    # override mouse events to keep dragging working but skip all Comment-style calculations
-    def mousePressEvent(self, event, passive=False):
-        if self.is_pinned: return
-        QGraphicsItem.mousePressEvent(self, event)
-
-    def mouseMoveEvent(self, event):
-        # calculate resize first
-        if self.is_showing_resize_cursor:
-            self.resize_comment( event )
-        else:
-            # if it's not resizing then it's moving
-            if self.is_pinned: return
-            QGraphicsItem.mouseMoveEvent(self, event)
-
-    # override release event
-    def mouseReleaseEvent(self, event, passive=None):
-        # passive flag left there just in case to prevent errors
-        QGraphicsItem.mouseReleaseEvent(self, event)
-
-        # if released while resizing, update manhattanlength
-        if self.is_showing_resize_cursor:
-            self.update_manhattan_length()
-
-        # don't move update anything if pinned, can't drag anyway
-        if self.is_pinned: return
-
-    # override paint
-    def paint(self, painter, option, widget):
-        if self.isSelected():
-            pen      = QPen(COLOR_SELECTED, 2)
-        else:
-            pen      = QPen(QColor(0,0,0,0), 2)
-
-        path = QPainterPath()
-        path.addRoundedRect(self.content_rect, self.round_corners_size, self.round_corners_size)
-        
-        painter.setPen(pen)
-        #painter.fillPath(path, self.bg_color )
-        painter.drawPath(path)
-        painter.drawPixmap(self.content_rect, self.pixmap, self.pixmap.rect())
-
-class NEPSearchBox(QDialog):
-    initial_width  = 450
-    initial_height = 1
-    comments_dict = {}
-    buttons_list  = []
-    NEP = None
-    def __init__(self, NEP, comments_list, parent):
-        super(NEPSearchBox, self).__init__(parent)
-        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
-        size_policy = QSizePolicy()
-        size_policy.setHorizontalPolicy(QSizePolicy.Expanding)
-        self.setSizePolicy(size_policy)
-
-        mouse_pos = QCursor.pos()
-        self.NEP = NEP
-
-        self.main_layout = QVBoxLayout()
-
-        self.scroll = QScrollArea()
-        self.widget = QWidget()
-        self.layout = QVBoxLayout()
-
-        self.filter_line_edit = QLineEdit()
-        self.filter_line_edit.setFixedWidth(self.initial_width)
-        self.filter_line_edit.setPlaceholderText("Type a substring of a comment to filter")
-        self.filter_line_edit.textChanged.connect(self.apply_comment_filter)
-        self.layout.addWidget(self.filter_line_edit)
-
-        if not comments_list:
-            # show simple layout
-            self.filter_line_edit.setText("No comment nodes found in current Tab")
-            self.filter_line_edit.setEnabled(False)
-            self.setLayout(self.layout)
-        else:
-            # build the full scroll area
-            for comment in comments_list:
-                self.comments_dict[comment.label] = comment
-                new_com_btn = QPushButton(comment.label)
-                new_com_btn.setStyleSheet("color: {}".format(comment.bg_color.name()))
-                new_com_btn.clicked.connect(partial(self.NEP.focus_item,comment))
-                self.buttons_list.append(new_com_btn)
-                self.layout.addWidget(new_com_btn)
-            self.layout.addStretch() # only add stretch if comments
-
-            self.widget.setLayout(self.layout)
-
-            self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            self.scroll.setWidgetResizable(True)
-            self.scroll.setFrameShape(QFrame.NoFrame)
-            self.scroll.setWidget(self.widget)
-
-            self.main_layout.addWidget(self.scroll)
-            self.setLayout(self.main_layout)
-            self.initial_height = 400
-        self.setGeometry( mouse_pos.x()+20, mouse_pos.y(), self.initial_width, self.initial_height)
-
-
-    def apply_comment_filter(self, filter_text):
-        if filter_text:
-            for btn in self.buttons_list:
-                btn.setVisible(False)
-
-            for btn in self.buttons_list:
-                if filter_text in btn.text():
-                    btn.setVisible(True)
-        else:
-            for btn in self.buttons_list:
-                btn.setVisible(True)
-
-    def keyPressEvent( self, e ):
-        # press ESC/TAB/ENTER closes UI
-        if e.key() == Qt.Key_Escape or e.key() == Qt.Key_Tab or e.key() == Qt.Key_Enter:
-            self.reject()
-
-    def leaveEvent( self, e ):
-        # leaving the UI with mouse pointer closes it
-        self.reject()
-
-    # static method to create the dialog
-    @staticmethod
-    def getResult(NEP, comments_list, parent):
-        dialog = NEPSearchBox(NEP, comments_list, parent)
-        if not comments_list:  # sets arbitrary height
-            dialog_height = 20
-        else:
-            dialog_height = 350
-
-        result = dialog.exec_()
-        return False
-
-def show_NEPSearchBox(NEP, comments_list, parent):
-    return NEPSearchBox.getResult(NEP, comments_list, parent)
