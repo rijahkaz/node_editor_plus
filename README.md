@@ -13,6 +13,7 @@ Like Maya's original Node Editor, NEP stores data per-scene in hidden nodes so a
 
 ## Installation:
 To install, copy the "node_editor_plus" folder to your Maya scripts dir. (**Note**: the folder to be copied is the one with a "\__init\__.py" inside)
+
 ![This one](git_img/correct_folder.png)
 
 
