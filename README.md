@@ -56,5 +56,5 @@ Hit "C" with some nodes selected to create comments. Press "B" with a comment se
 + [Rijah Kazuo](https://github.com/rijahkaz/) - overall maintenance of the code
 + [Danilo Pinheiro](https://github.com/nilouco) - added color capability to the comment nodes
 + [Camila Paulino Galva](https://github.com/campaulino) - added Align Tools capability and other improvements and fixes
-+ [Rawda Ghalban](https://github.com/Ghalban) - sidebar icons and other improvements
++ [Rawda Elwalily](https://github.com/Ghalban) - sidebar icons and other improvements
 + [Ninette Tan](https://github.com/ntanimate) - improvements and fixes
