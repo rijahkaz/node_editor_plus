@@ -314,7 +314,7 @@ class NodeEditorPlus():
         # comments buttons
         self.left_toolbar.addSeparator()
         self.toolbar_add_button(self.left_toolbar, "Create New Comment (C)",      "comment_add.svg",    self.create_comment)
-        self.toolbar_add_button(self.left_toolbar, "Delete Item (Del)"            "comment_remove.svg", self.delete_item)
+        self.toolbar_add_button(self.left_toolbar, "Delete Item (Del)",           "comment_remove.svg", self.delete_item)
         self.toolbar_add_button(self.left_toolbar, "Change Comment Color (B)",    "comment_color.svg",  self.color_comment)
         self.toolbar_add_button(self.left_toolbar, "Add Image to Graph (Ctrl+I)", "image_add.svg",      self.pick_new_image)
         self.toolbar_add_button(self.left_toolbar, "Search Comments (Ctrl+F)",    ":/search.png",       self.show_search_menu)
