@@ -460,7 +460,7 @@ class NEPNodeAligner():
         elif axis == "y":
             mTop = self.getMostTop(self.get_all_positions(graphicsList))
             mBottom = self.getMostBottom(self.get_all_values(graphicsList))
-            fLenght = mBottom - mTop
+            fLenght = mTop - mBottom
             for node in graphicsList:
                 heights += node.boundingRect().height()
             spaceBetween = (fLenght - heights) / (len(graphicsList) - 1)
@@ -572,6 +572,7 @@ class NEPNodeAligner():
     def verticalDistribute(self, graphicsList):
         values = self.sort_by_position("y", graphicsList)
         yValue = 0
+        index= 0
         #Get gap between Nodes.
         spaceBetween = self.get_space_between("y", values)
         #Ititate through list and asign values.
