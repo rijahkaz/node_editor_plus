@@ -313,22 +313,22 @@ class NodeEditorPlus():
 
         # comments buttons
         self.left_toolbar.addSeparator()
-        self.toolbar_add_button(self.left_toolbar, "Create New Comment",   "comment_add.svg",    self.create_comment)
-        self.toolbar_add_button(self.left_toolbar, "Delete Item",          "comment_remove.svg", self.delete_item)
-        self.toolbar_add_button(self.left_toolbar, "Change Comment Color", "comment_color.svg",  self.color_comment)
-        self.toolbar_add_button(self.left_toolbar, "Add Image to Graph",   "image_add.svg",      self.pick_new_image)
-        self.toolbar_add_button(self.left_toolbar, "Search Comments",      ":/search.png",       self.show_search_menu)
+        self.toolbar_add_button(self.left_toolbar, "Create New Comment (C)",      "comment_add.svg",    self.create_comment)
+        self.toolbar_add_button(self.left_toolbar, "Delete Item (Del)"            "comment_remove.svg", self.delete_item)
+        self.toolbar_add_button(self.left_toolbar, "Change Comment Color (B)",    "comment_color.svg",  self.color_comment)
+        self.toolbar_add_button(self.left_toolbar, "Add Image to Graph (Ctrl+I)", "image_add.svg",      self.pick_new_image)
+        self.toolbar_add_button(self.left_toolbar, "Search Comments (Ctrl+F)",    ":/search.png",       self.show_search_menu)
         
         # align buttons
         self.left_toolbar.addSeparator()
-        self.toolbar_add_button(self.left_toolbar, "Align Top",    "align_top.svg",    partial(self.alignNodes,"top"))
-        self.toolbar_add_button(self.left_toolbar, "Align Middle", "align_middle.svg", partial(self.alignNodes,"middle"))
-        self.toolbar_add_button(self.left_toolbar, "Align Bottom", "align_bottom.svg", partial(self.alignNodes,"bottom"))
-        self.toolbar_add_button(self.left_toolbar, "Align Left",   "align_left.svg",   partial(self.alignNodes,"left"))
-        self.toolbar_add_button(self.left_toolbar, "Align Center", "align_center.svg", partial(self.alignNodes,"center"))
-        self.toolbar_add_button(self.left_toolbar, "Align Right",  "align_right.svg",  partial(self.alignNodes,"right"))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally", "distribute_horizontal.svg", partial(self.alignNodes,"horizontal"))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically",   "distribute_vertical.svg",   partial(self.alignNodes,"vertical"))
+        self.toolbar_add_button(self.left_toolbar, "Align Top (Shift+W)",         "align_top.svg",    partial(self.alignNodes,"top"))
+        self.toolbar_add_button(self.left_toolbar, "Align Middle (Alt+Shift+W)",  "align_middle.svg", partial(self.alignNodes,"middle"))
+        self.toolbar_add_button(self.left_toolbar, "Align Bottom (Shift+S)",      "align_bottom.svg", partial(self.alignNodes,"bottom"))
+        self.toolbar_add_button(self.left_toolbar, "Align Left (Shift+A)",        "align_left.svg",   partial(self.alignNodes,"left"))
+        self.toolbar_add_button(self.left_toolbar, "Align Center (Alt+Shift+S)",  "align_center.svg", partial(self.alignNodes,"center"))
+        self.toolbar_add_button(self.left_toolbar, "Align Right (Shift+D)",       "align_right.svg",  partial(self.alignNodes,"right"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally (H)", "distribute_horizontal.svg", partial(self.alignNodes,"horizontal"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically (V)",   "distribute_vertical.svg",   partial(self.alignNodes,"vertical"))
         self.left_toolbar.addSeparator()
 
 
