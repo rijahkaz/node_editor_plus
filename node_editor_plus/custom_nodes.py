@@ -456,14 +456,14 @@ class NEPNodeAligner():
             fLenght = mRight - mLeft
             for node in graphicsList:
                 widths += node.boundingRect().width()
-            spaceBetween = (fLenght - widths) / len(graphicsList) - 1
+            spaceBetween = (fLenght - widths) / (len(graphicsList) - 1)
         elif axis == "y":
             mTop = self.getMostTop(self.get_all_positions(graphicsList))
             mBottom = self.getMostBottom(self.get_all_values(graphicsList))
             fLenght = mBottom - mTop
             for node in graphicsList:
                 heights += node.boundingRect().height()
-            spaceBetween = (fLenght - heights) / len(graphicsList) - 1
+            spaceBetween = (fLenght - heights) / (len(graphicsList) - 1)
 
         return spaceBetween
         
