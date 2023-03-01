@@ -57,9 +57,9 @@ class NEPConnectionFilter(QDialog):
         self.window_label.setStyleSheet("QLabel {font-size: 15px;}")
 
         self.exit_btn = QPushButton()
-        icon_size = QtGui.QImageReader(f":{self.CONNECTION_TYPE}.png").size()
+        icon_size = QImageReader(f":{self.CONNECTION_TYPE}.png").size()
         self.exit_btn.setIcon(QIcon(f":{self.CONNECTION_TYPE}.png"))
-        self.exit_btn.setIconSize(QtCore.QSize(icon_size))
+        self.exit_btn.setIconSize(QSize(icon_size))
         self.exit_btn.setFixedSize(icon_size.width(), icon_size.height())
         self.exit_btn.setStyleSheet("QPushButton { border: 1px solid #5D5D5D; border-radius: 16px; "
                                     "background-color: #5D5D5D;}"
