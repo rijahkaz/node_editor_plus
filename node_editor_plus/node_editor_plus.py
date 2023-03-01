@@ -327,8 +327,8 @@ class NodeEditorPlus():
         self.toolbar_add_button(self.left_toolbar, "Align Left (Shift+A)",        "align_left.svg",   partial(self.alignNodes,"left"))
         self.toolbar_add_button(self.left_toolbar, "Align Center (Alt+Shift+S)",  "align_center.svg", partial(self.alignNodes,"center"))
         self.toolbar_add_button(self.left_toolbar, "Align Right (Shift+D)",       "align_right.svg",  partial(self.alignNodes,"right"))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally (H)", "distribute_horizontal.svg", partial(self.alignNodes,"horizontal"))
-        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically (V)",   "distribute_vertical.svg",   partial(self.alignNodes,"vertical"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Horizontally (Shift+H)", "distribute_horizontal.svg", partial(self.alignNodes,"horizontal"))
+        self.toolbar_add_button(self.left_toolbar, "Distribute Vertically (Shift+V)",   "distribute_vertical.svg",   partial(self.alignNodes,"vertical"))
         self.left_toolbar.addSeparator()
 
 
