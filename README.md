@@ -3,11 +3,12 @@
 ## Overview:
 **Node Editor Plus (NEP)** is a script that overrides Maya's original Node Editor with extra capabilities such as Comment Nodes, ability to insert Images into the graph and align tools to organize nodes.
 It is **NOT** recommended to alternate between the original Node Editor and Node Editor Plus, you may experience crashing or lose NEP data, so if you're using NEP stick to it and you shouldn't lose your work.
-You can open scenes that had NEP data in it (such as comments and images), but you won't be able to see the extra-functionality in it and you may lose NEP information if you save using the original Node Editor and then reopen using NEP.
+
+Using the original Node Editor will show your graphs and bookmarks as usual, but you won't be able to see our custom nodes (such as comments and images) and you may lose NEP data if you save using the original one and later reopen using NEP.
 
 Like Maya's original Node Editor, NEP stores data per-scene in hidden nodes so avoid importing scenes with NEP data, this may generate unexpected behavior.
 
-![](git_img/NEP_preview.png)
+![Look at me, I'm the captain now](git_img/NEP_preview.png)
 
 
 ## Installation:
@@ -18,7 +19,7 @@ from node_editor_plus import node_editor_plus
 nep = node_editor_plus.NodeEditorPlus()
 nep.ui()
 ```
-### It is recommended to add this command to a hotkey such as Shift+N and use it instead of the original Node Editor
+**It is recommended to add this command to a hotkey such as Shift+N and use it instead of the original Node Editor**
 
 
 ## Quickstart:
@@ -48,7 +49,7 @@ Hit "C" with some nodes selected to create comments. Press "B" with a comment se
 + Shift + V: Distribute Vertical
 
 ## Credits:
-+ [Rijah Kazuo](https://http://rigstation.com/) - overall maintenance of the code
++ [Rijah Kazuo](https://github.com/rijahkaz/) - overall maintenance of the code
 + [Danilo Pinheiro](https://github.com/nilouco) - added color capability to the comment nodes
 + [Camila Paulino Galva](https://github.com/campaulino) - added Align Tools capability and other improvements and fixes
 + [Rawda Ghalban](https://github.com/Ghalban) - sidebar icons and other improvements
