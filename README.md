@@ -4,9 +4,6 @@ To install, copy the "node_editor_plus" folder to your Maya scripts dir.
 After that, copy and run these lines of code in a Python command tab in Maya's script editor (you can also add this to a python shelf button):
 ```
 from node_editor_plus import node_editor_plus
-from node_editor_plus import node_connection_filter
-from node_editor_plus import custom_nodes
-from node_editor_plus import overrides
 nep = node_editor_plus.NodeEditorPlus()
 nep.ui()
 ```
