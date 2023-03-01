@@ -7,6 +7,8 @@ You can open scenes that had NEP data in it (such as comments and images), but y
 
 Like Maya's original Node Editor, NEP stores data per-scene in hidden nodes so avoid importing scenes with NEP data, this may generate unexpected behavior.
 
+![](git_img/NEP_preview.png)
+
 
 ## Installation:
 To install, copy the "node_editor_plus" folder to your Maya scripts dir. (**Note**: the folder to be copied is the one with a "\__init\__.py" inside)
