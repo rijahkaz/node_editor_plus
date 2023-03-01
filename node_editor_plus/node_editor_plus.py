@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.26"
+VERSION = "0.1.27"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -207,7 +207,7 @@ class NodeEditorPlus():
         key_pressed = args[1]
 
         mods = cmds.getModifiers()
-        print(key_pressed, "mods:", mods)
+        #print(key_pressed, "mods:", mods)
         
         # create comment on selected nodes
         if key_pressed == "C":

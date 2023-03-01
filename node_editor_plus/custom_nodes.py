@@ -368,12 +368,39 @@ class NEPDragManager():
         self.items_being_dragged = []
 
 class NEPNodeAligner():
-    def startAlign(self, caller, selectedItems, event):
-        pass
+    def startAlign(self, comment):
+        #print("START")
+        children = comment.childItems() # cache
+        colliding_items = comment.collidingItems()
+        if colliding_items:
+            for item in colliding_items:
+                item_type = type(item)
+                if item_type == QGraphicsItem or item_type == NEPImage:
+                    if item not in children:
+                        if item_type == NEPImage:
+                            if not item.is_pinned:
+                                comment.add_child(item)
+                        else: # this is a native Maya node
+                            if not bool(item.flags() & QGraphicsItem.ItemIsFocusable): # skip searchbox
+                                comment.add_child(item)
 
-    def stopAlign(self, caller, selectedItems, event):
-        pass
-
+    def stopAlign(self, comment):
+        #print("STOP")
+        children = comment.childItems()
+        if children:
+            # hack to refresh C++ objects everytime children count change
+            # so we're not pointing to objects that got deleted
+            while True:
+                children = comment.childItems()
+                can_exit = True
+                for item in children:
+                    item_type = type(item)
+                    if item_type == QGraphicsItem or item_type == NEPImage:
+                        comment.remove_child(item)
+                        can_exit = False
+                        break
+                if can_exit:
+                    break
     def getFullLength(self, axis, graphicsList):
         fullLength = 0
         positionSize = 0
@@ -509,23 +536,41 @@ class NEPNodeAligner():
         xValue = self.getMostLeft(self.get_all_positions(values))
         #print(xValue)
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             node.setPos(xValue, node.pos().y())
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def centerAlign(self, graphicsList):
         values = self.sort_by_position("x", graphicsList)
         xValue = self.getCenter(self.getMostLeft(self.get_all_positions(values)), self.getMostRight(self.get_all_values(values)))
         #print(xValue)
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             nodeCenter = node.boundingRect().width()/2
             node.setPos(xValue - nodeCenter, node.pos().y())
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def rightAlign(self, graphicsList):
         values = self.sort_by_position("x", graphicsList)
         widthValue = self.getMostRight(self.get_all_values(values))
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             nodeWidth = node.boundingRect().width()
             xValue = widthValue - nodeWidth
             node.setPos(xValue, node.pos().y())
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
           
 
     def topAlign(self, graphicsList):
@@ -533,24 +578,42 @@ class NEPNodeAligner():
         yValue = self.getTop(self.get_all_positions(values))
         #print(yValue)
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             node.setPos(node.pos().x(), yValue)
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def middleAlign(self, graphicsList):
         values = self.sort_by_position("y", graphicsList)
         yValue = self.getMiddle(self.getMostTop(self.get_all_positions(values)), self.getMostBottom(self.get_all_values(values)))
         #print(yValue)
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             nodeMiddle = node.boundingRect().height()/2
             node.setPos(node.pos().x(), yValue - nodeMiddle)
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def bottomAlign(self, graphicsList):
         values = self.sort_by_position("y", graphicsList)
         heightValue = self.getBottom(self.get_all_values(values))
         #print(yValue)
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             nodeHieight = node.boundingRect().height()
             yValue = heightValue - nodeHieight
             node.setPos(node.pos().x(), yValue)
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def horizontalDistribute(self, graphicsList):
         values = self.sort_by_position("x", graphicsList)
@@ -560,6 +623,11 @@ class NEPNodeAligner():
         spaceBetween = self.get_space_between("x", values)
         #Ititate through list and asign values.
         for node in values:
+            #print(node)
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
+
             if node != values[0]:
                 xValue = values[index].pos().x() + values[index].boundingRect().width() + spaceBetween
                 index+= 1
@@ -567,6 +635,9 @@ class NEPNodeAligner():
                 xValue = node.pos().x()
 
             node.setPos(xValue, node.pos().y())
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
     def verticalDistribute(self, graphicsList):
         values = self.sort_by_position("y", graphicsList)
@@ -576,12 +647,18 @@ class NEPNodeAligner():
         spaceBetween = self.get_space_between("y", values)
         #Ititate through list and asign values.
         for node in values:
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.startAlign(node)
             if node != values[0]:
                 yValue = values[index].pos().y() + values[index].boundingRect().height() + spaceBetween
                 index+= 1
             else:
                 yValue = node.pos().y()
             node.setPos(node.pos().x(), yValue)
+            if type(node) == NEPComment:
+                #print(node, " is comment")
+                self.stopAlign(node)
 
 
 
