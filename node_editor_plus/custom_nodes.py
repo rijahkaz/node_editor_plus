@@ -699,7 +699,11 @@ class NEPSearchBox(QDialog):
 
             self.main_layout.addWidget(self.scroll)
             self.setLayout(self.main_layout)
-            self.initial_height = 400
+
+            # stretches UI up to 5 buttons
+            self.widget.resize(self.widget.sizeHint()+QSize(0,self.filter_line_edit.height()-20))
+            self.initial_height = min(self.widget.height(), 350)
+
         self.setGeometry( mouse_pos.x()+20, mouse_pos.y(), self.initial_width, self.initial_height)
 
 

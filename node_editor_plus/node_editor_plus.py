@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.23"
+VERSION = "0.1.24"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
