@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.24"
+VERSION = "0.1.26"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -222,11 +222,11 @@ class NodeEditorPlus():
             self.color_comment()
             return True
         # add image
-        elif (mods & 4) > 0 and key_pressed == "I":
+        elif mods == 4 and key_pressed == "I":
             self.pick_new_image()
             return True
         # search comments
-        elif (mods & 4) > 0 and key_pressed == "F":
+        elif mods == 4 and key_pressed == "F":
             self.show_search_menu()
             return True
         # graph input connection
@@ -239,36 +239,36 @@ class NodeEditorPlus():
         # delete selected comment(s)
         elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_item()
-        # align selected node(s) to the Top
-        elif (mods & 1) > 0 and key_pressed == "W": 
-            self.alignNodes("top")
-            return True
         # align selected node(s) to the Middle
-        elif (mods & 4) > 0 and key_pressed == "W": 
+        elif mods == 9 and key_pressed == "W": 
             self.alignNodes("middle")
             return True
+        # align selected node(s) to the Center
+        elif mods == 9 and key_pressed == "S": 
+            self.alignNodes("center")
+            return True
+        # align selected node(s) to the Top
+        elif mods == 1 and key_pressed == "W": 
+            self.alignNodes("top")
+            return True
         # align selected node(s) to the Bottom
-        elif (mods & 1) > 0 and key_pressed == "S": 
+        elif mods == 1 and key_pressed == "S": 
             self.alignNodes("bottom")
             return True
         # align selected node(s) to the Left
-        elif (mods & 1) > 0 and key_pressed == "A": 
+        elif mods == 1 and key_pressed == "A": 
             self.alignNodes("left")
             return True
-        # align selected node(s) to the Center
-        elif (mods & 4) > 0 and key_pressed == "A": 
-            self.alignNodes("center")
-            return True
         # align selected node(s) to the Right
-        elif (mods & 1) > 0 and key_pressed == "D": 
+        elif mods == 1 and key_pressed == "D": 
             self.alignNodes("right")
             return True
         # distribute selected node(s) Horizontally
-        elif (mods & 1) > 0 and key_pressed == "H": 
+        elif mods == 1 and key_pressed == "H": 
             self.alignNodes("horizontal")
             return True
         # distribute selected node(s) Vertically
-        elif (mods & 1) > 0 and key_pressed == "V": 
+        elif mods == 1 and key_pressed == "V": 
            self.alignNodes("vertical")
            return True
 
