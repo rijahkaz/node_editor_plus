@@ -440,7 +440,7 @@ class NEPNodeAligner():
 
         for nodeTuple in sortedNodes:
             nodes.append(nodeTuple[0])
-        print("Nodes:", nodes)
+        #print("Nodes:", nodes)
 
         return nodes
 
@@ -458,8 +458,8 @@ class NEPNodeAligner():
                 widths += node.boundingRect().width()
             spaceBetween = (fLenght - widths) / (len(graphicsList) - 1)
         elif axis == "y":
-            mTop = self.getMostTop(self.get_all_positions(graphicsList))
-            mBottom = self.getMostBottom(self.get_all_values(graphicsList))
+            mTop = self.getTop(self.get_all_positions(graphicsList))
+            mBottom = self.getBottom(self.get_all_values(graphicsList))
             fLenght = mBottom - mTop
             for node in graphicsList:
                 heights += node.boundingRect().height()
@@ -558,7 +558,6 @@ class NEPNodeAligner():
         index= 0
         #Get gap between Nodes.
         spaceBetween = self.get_space_between("x", values)
-        #print("spaceBetween:", spaceBetween)
         #Ititate through list and asign values.
         for node in values:
             if node != values[0]:
@@ -572,6 +571,7 @@ class NEPNodeAligner():
     def verticalDistribute(self, graphicsList):
         values = self.sort_by_position("y", graphicsList)
         yValue = 0
+        index= 0
         #Get gap between Nodes.
         spaceBetween = self.get_space_between("y", values)
         #Ititate through list and asign values.
