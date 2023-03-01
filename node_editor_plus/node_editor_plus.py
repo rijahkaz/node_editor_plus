@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.24"
+VERSION = "0.1.25"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -239,13 +239,17 @@ class NodeEditorPlus():
         # delete selected comment(s)
         elif key_pressed == "Del" or key_pressed == "Backspace": 
             self.delete_item()
+        # align selected node(s) to the Middle
+        elif (mods & 9) > 0 and key_pressed == "W": 
+            self.alignNodes("middle")
+            return True
+        # align selected node(s) to the Center
+        elif (mods & 9) > 0 and key_pressed == "S": 
+            self.alignNodes("center")
+            return True
         # align selected node(s) to the Top
         elif (mods & 1) > 0 and key_pressed == "W": 
             self.alignNodes("top")
-            return True
-        # align selected node(s) to the Middle
-        elif (mods & 4) > 0 and key_pressed == "W": 
-            self.alignNodes("middle")
             return True
         # align selected node(s) to the Bottom
         elif (mods & 1) > 0 and key_pressed == "S": 
@@ -254,10 +258,6 @@ class NodeEditorPlus():
         # align selected node(s) to the Left
         elif (mods & 1) > 0 and key_pressed == "A": 
             self.alignNodes("left")
-            return True
-        # align selected node(s) to the Center
-        elif (mods & 4) > 0 and key_pressed == "A": 
-            self.alignNodes("center")
             return True
         # align selected node(s) to the Right
         elif (mods & 1) > 0 and key_pressed == "D": 
