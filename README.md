@@ -52,9 +52,19 @@ Hit "C" with some nodes selected to create comments. Press "B" with a comment se
 + Shift + H: Distribute Horizontal
 + Shift + V: Distribute Vertical
 
+## Demos:
+Shift+W, Shift+S and Alt+Shift+W to align vertically
+![This one](git_img/NEP_Align_Vertical.gif)
+
+Shift+A, Shift+D and Alt+Shift+S to align horizontally
+![This one](git_img/NEP_Align_Horizontal.gif)
+
+Shift+H and Shift+V to distribute spacing between nodes
+![This one](git_img/NEP_Align_Distribute.gif)
+
 ## Credits:
 + [Rijah Kazuo](https://github.com/rijahkaz/) - overall maintenance of the code
 + [Danilo Pinheiro](https://github.com/nilouco) - added color capability to the comment nodes
 + [Camila Paulino Galva](https://github.com/campaulino) - added Align Tools capability and other improvements and fixes
-+ [Rawda Ghalban](https://github.com/Ghalban) - sidebar icons and other improvements
++ [Rawda Elwalily](https://github.com/Ghalban) - sidebar icons and other improvements
 + [Ninette Tan](https://github.com/ntanimate) - improvements and fixes
