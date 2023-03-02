@@ -73,7 +73,7 @@ Press "Ctrl+F" to search Comments. Click on the Comment label to jump to its pos
 ![](git_img/NEP_Search_Box.gif)
 
 
-Due to NEP's persistent nature, it will always warn you if you try an operation that clears the graph. If you want to supress the messages and clear everytime, there's a new Option for that in the menu.
+Due to NEP's persistent nature, it will always warn you if you try an operation that clears the graph. If you want to supress the messages and clear everytime, there's a new option for that in the **Options** menu: "Node Editor Plus: Supress Confirm Dialogs"
 
 ![](git_img/NEP_Confirm_Dialog.gif)
 
