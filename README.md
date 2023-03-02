@@ -53,17 +53,50 @@ Hit "C" with some nodes selected to create comments. Press "B" with a comment se
 + Shift + V: Distribute Vertical
 
 ## Demos:
-Shift+W, Shift+S and Alt+Shift+W to align vertically
+Press "C" to create a new Comment around selected nodes. Double click the text to rename or press "F2". Everything inside a Comment Node will be dragged along with it.
 
-![This one](git_img/NEP_Align_Vertical.gif)
+![](git_img/NEP_Comments.gif)
 
-Shift+A, Shift+D and Alt+Shift+S to align horizontally
 
-![This one](git_img/NEP_Align_Horizontal.gif)
+Press "B" with at least one selected Comment to change colors.
 
-Shift+H and Shift+V to distribute spacing between nodes
+![](git_img/NEP_Color_Comments.gif)
 
-![This one](git_img/NEP_Align_Distribute.gif)
+
+Press "Ctrl+I" to import images. Images can be carried by Comment Nodes or pinned to the graph.
+
+![](git_img/NEP_Images.gif)
+
+
+Press "Ctrl+F" to search Comments. Click on the Comment label to jump to its position in the graph.
+
+![](git_img/NEP_Search_Box.gif)
+
+
+Due to NEP's persistent nature, it will always warn you if you try an operation that clears the graph. If you want to supress the messages and clear everytime, there's a new Option for that in the menu.
+
+![](git_img/NEP_Confirm_Dialog.gif)
+
+
+Selective graphing: hovering any node's attribute and pressing "I" or "O" will additively graph the input/output connections if they exist.
+
+![](git_img/NEP_GraphIO.gif)
+
+
+
+Press "Shift+W", "Shift+S" and "Alt+Shift+W" to align vertically
+
+![](git_img/NEP_Align_Vertical.gif)
+
+
+Press "Shift+A", "Shift+D" and "Alt+Shift+S" to align horizontally
+
+![](git_img/NEP_Align_Horizontal.gif)
+
+
+Press "Shift+H" and "Shift+V" to distribute spacing between nodes
+
+![](git_img/NEP_Align_Distribute.gif)
 
 ## Credits:
 + [Rijah Kazuo](https://github.com/rijahkaz/) - overall maintenance of the code
