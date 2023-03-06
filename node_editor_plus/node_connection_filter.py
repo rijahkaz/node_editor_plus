@@ -7,37 +7,40 @@ from maya import mel, cmds, OpenMayaUI
 
 
 def maya_main_window():
-    """
-    Return the Maya main window widget as a Python object
-    """
     main_window_ptr = OpenMayaUI.MQtUtil.mainWindow()
     return wrapInstance(int(main_window_ptr), QWidget)
 
-
 class NEPConnectionFilter(QDialog):
-
-    def __init__(self, connection_type="input", parent=maya_main_window()):
+    def __init__(self, NEP=None, plug="plug", conn_type="input", conn_nodes=[], parent=maya_main_window()):
         super(NEPConnectionFilter, self).__init__(parent)
+
         self.CATEGORY = ("Node", "Attribute", "Type")
-        self.CONNECTION_TYPE = connection_type
+        self.SELECTION = conn_nodes     # All nodes by default unless get_selected_nodes is triggered
+        self.NEP = NEP
+        self.PLUG_NAME = plug
+        self.CONNECTION_TYPE = conn_type
+        self.NODES_LIST = conn_nodes
+
+        mouse_pos = QCursor.pos()
+        initial_width = 382
+        initial_height = 300
 
         # TESTING DATA  TODO: use a zip method for real thing
-        self.node_info = [["node1_postfix", "translateX", "abc"],
-                          ["node2", "translateY", "123"],
-                          ["node3", "translateY", "abc"],
-                          ["transform1", "translateX\ntranslateY", "123"],
-                          ["nice", "translateX", "123"],
-                          ["prefix_ok", "translateY", "123"],
-                          ["ok_postfix", "translateY", "abc"],
-                          ["this is a very very very long name", "translateX", "abc"]]
+        # self.node_info = [["node1_postfix", "translateX", "abc"],
+        #                   ["node2", "translateY", "123"],
+        #                   ["node3", "translateY", "abc"],
+        #                   ["transform1", "translateX\ntranslateY", "123"],
+        #                   ["nice", "translateX", "123"],
+        #                   ["prefix_ok", "translateY", "123"],
+        #                   ["ok_postfix", "translateY", "abc"],
+        #                   ["this is a very very very long name", "translateX", "abc"]]
 
-        # sys.stdout.write(f"Attribute name {self.CONNECTION_TYPE}")
-        cmds.inViewMessage(amg=f'Viewing "<hl>{self.CONNECTION_TYPE}</hl>"', pos='midCenter', fade=True)
+        self.node_info = self.NODES_LIST
 
-        self.setMinimumSize(382, 600)
+        self.setMinimumSize(initial_height, initial_width)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
-        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
         self.setModal(True)
+        self.setGeometry(mouse_pos.x() + 20, mouse_pos.y() - (initial_height/2), initial_width, initial_height)
 
         self.create_widgets()
         self.create_layout()
@@ -52,7 +55,7 @@ class NEPConnectionFilter(QDialog):
             grip.resize(self.grip_size, self.grip_size)
             self.grips.append(grip)
 
-        self.window_label = QLabel(f"Node name: attr name {self.CONNECTION_TYPE}")
+        self.window_label = QLabel(f"{self.PLUG_NAME} {self.CONNECTION_TYPE}s")
         self.window_label.setAlignment(Qt.AlignCenter)
         self.window_label.setStyleSheet("QLabel {font-size: 15px;}")
 
@@ -114,8 +117,8 @@ class NEPConnectionFilter(QDialog):
         self.exit_btn.clicked.connect(self.exit)
         self.instant_search_field.textChanged.connect(self.filter_proxy_model.setFilterRegExp)
         self.filter_type_combo.currentTextChanged.connect(self.on_combo_text_changed)
-        self.graph_selected_btn.clicked.connect(self.get_selected_connections)
-        self.graph_all_btn.clicked.connect(self.exit)
+        self.graph_selected_btn.clicked.connect(self.graph_connections)
+        self.graph_all_btn.clicked.connect(self.graph_connections)
 
     #########################
     #   OVERRIDES
@@ -123,16 +126,16 @@ class NEPConnectionFilter(QDialog):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.oldPos = event.globalPos()
+            self.old_pos = event.globalPos()
 
     def mouseMoveEvent(self, event):
-        if self.oldPos is not None:
-            delta = event.globalPos() - self.oldPos
+        if self.old_pos is not None:
+            delta = event.globalPos() - self.old_pos
             self.move(self.pos() + delta)
-            self.oldPos = event.globalPos()
+            self.old_pos = event.globalPos()
 
     def mouseReleaseEvent(self, event):
-        self.oldPos = None
+        self.old_pos = None
 
     def resizeEvent(self, event):
         QMainWindow.resizeEvent(self, event)
@@ -159,12 +162,22 @@ class NEPConnectionFilter(QDialog):
 
     def get_selected_connections(self):
         indexes = self.table.selectionModel().selectedRows()
-        for index in indexes:
-            print(f'Row {index.row()} is selected: {index.data()}')
+        if indexes:
+            self.SELECTION = []
+            for index in indexes:
+                print(f'Row {index.row()} is selected: {index.data()}')
+                self.SELECTION.append(index.data())
+        else:
+            return cmds.warning("Please select the nodes you want to add")
 
-    def graph_connections(self):
-        # TODO: call graph connections for all by default, otherwise graph from get_selected_connections()
+    def graph_connections(self, graph_all=True):
+        if graph_all:
+            print("Graphing all")
+        else:
+            self.get_selected_connections()
+            print("Graphing selected")
         self.exit()
+
 
     def populate_table(self, sorting_key=0):
         """
@@ -173,12 +186,12 @@ class NEPConnectionFilter(QDialog):
         :param sorting_key: (integer) The index used to sort the node info by Node name, Attribute, or Type.
         """
         for row, item in enumerate(sorted(self.node_info, key=lambda x: x[sorting_key])):
-            data = QStandardItem(item[0])  # Name
+            data = QStandardItem(item)  # Name
             self.model.setItem(row, 0, data)
-            data = QStandardItem(item[1])  # Attribute
-            self.model.setItem(row, 1, data)
-            data = QStandardItem(item[2])  # Type
-            self.model.setItem(row, 2, data)
+            #data = QStandardItem(item[1])  # Attribute
+            #self.model.setItem(row, 1, data)
+            #data = QStandardItem(item[2])  # Type
+            #self.model.setItem(row, 2, data)
 
     def on_combo_text_changed(self, text=""):
         """
@@ -195,8 +208,10 @@ class NEPConnectionFilter(QDialog):
     def exit(self):
         self.close()
         self.deleteLater()
+        print(self.SELECTION)
+        return self.SELECTION
 
-
+"""
 if __name__ == "__main__":
 
     # noinspection PyBroadException
@@ -208,3 +223,4 @@ if __name__ == "__main__":
 
     nep_connection_filter = NEPConnectionFilter()
     nep_connection_filter.show()
+"""
