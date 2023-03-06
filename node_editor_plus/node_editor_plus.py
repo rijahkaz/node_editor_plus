@@ -7,6 +7,7 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 from node_editor_plus import custom_nodes
+from node_editor_plus import node_connection_filter
 from node_editor_plus import overrides
 
 # version tracking
@@ -556,7 +557,7 @@ class NodeEditorPlus():
             elif conn_type == "output":
                 con_nodes = cmds.listConnections(plug_under_cursor, source=False, destination=True, skipConversionNodes=False)
             
-            if con_nodes:
+            if len(con_nodes) < max_before_filter:
                 source_node = cmds.nodeEditor(self.node_editor, feedbackNode=True, query=True)
                 cmds.nodeEditor(self.node_editor, selectNode="", edit=True) # clear
                 cmds.nodeEditor(self.node_editor, selectNode=source_node, edit=True)
@@ -571,6 +572,8 @@ class NodeEditorPlus():
                 cmds.select(con_nodes)
                 cmds.refresh(force=True)
                 QTimer.singleShot(100, partial(self.graph_connection_organize, source_item, conn_type))
+            else:
+                self.show_connection_filter(plug=plug_under_cursor, conn_type=conn_type, conn_nodes=con_nodes)
 
     def graph_connection_organize(self, source_item, conn_type):
         # roughly aligns new added nodes to the source_item
@@ -590,7 +593,20 @@ class NodeEditorPlus():
             for item in dest_items:
                 item.setPos( source_item.pos().x()+(item.boundingRect().width())*1.5, y_offset+20 )
                 y_offset = +item.pos().y() + item.boundingRect().height()
+    
+    def show_connection_filter(self, plug, conn_type, conn_nodes, parent=None):
+        try:
+            nep_connection_filter.close()
+            nep_connection_filter.deleteLater()
+        except:
+            pass
 
+        if parent is None:
+            nep_connection_filter = node_connection_filter.NEPConnectionFilter(self, plug, conn_type, conn_nodes)
+        else:
+            nep_connection_filter = node_connection_filter.NEPConnectionFilter(self, plug, conn_type, conn_nodes,
+                                                                               parent)
+        nep_connection_filter.show()
 
     def window_close(self):
         # avoid errors if user launches original Node Editor
