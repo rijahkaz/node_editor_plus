@@ -549,6 +549,7 @@ class NodeEditorPlus():
 
 
     def graph_connection(self, conn_type="output"):
+        max_before_filter = 2   # if greater than max number of nodes, show the node connection filter window
         plug_under_cursor = cmds.nodeEditor(self.node_editor, feedbackPlug=True, query=True)
         if plug_under_cursor:
             con_nodes = []
