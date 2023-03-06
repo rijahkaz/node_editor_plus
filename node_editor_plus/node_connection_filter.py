@@ -1,4 +1,5 @@
 import sys
+from functools import partial
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
@@ -10,9 +11,22 @@ def maya_main_window():
     main_window_ptr = OpenMayaUI.MQtUtil.mainWindow()
     return wrapInstance(int(main_window_ptr), QWidget)
 
+def getCurrentScene(node_editor):
+    ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
+    if ctrl is None:
+        raise RuntimeError("Node editor is not open")
+    nodeEdPane = wrapInstance(int(ctrl), QWidget)
+    stack = nodeEdPane.findChild(QStackedLayout)
+    graph_view = stack.currentWidget().findChild(QGraphicsView)
+    scene = graph_view.scene()
+    return scene
+
 class NEPConnectionFilter(QDialog):
     def __init__(self, NEP=None, plug="plug", conn_type="input", conn_nodes=[], parent=maya_main_window()):
         super(NEPConnectionFilter, self).__init__(parent)
+
+        p = cmds.scriptedPanel(type="nodeEditorPanel")
+        self.node_editor = p + "NodeEditorEd"
 
         self.CATEGORY = ("Node", "Attribute", "Type")
         self.SELECTION = conn_nodes     # All nodes by default unless get_selected_nodes is triggered
@@ -117,8 +131,8 @@ class NEPConnectionFilter(QDialog):
         self.exit_btn.clicked.connect(self.exit)
         self.instant_search_field.textChanged.connect(self.filter_proxy_model.setFilterRegExp)
         self.filter_type_combo.currentTextChanged.connect(self.on_combo_text_changed)
-        self.graph_selected_btn.clicked.connect(self.graph_connections)
-        self.graph_all_btn.clicked.connect(self.graph_connections)
+        self.graph_selected_btn.clicked.connect(self.graph_selected_nodes)
+        self.graph_all_btn.clicked.connect(self.graph_all_nodes)
 
     #########################
     #   OVERRIDES
@@ -150,9 +164,6 @@ class NEPConnectionFilter(QDialog):
     def get_attr_under_mouse_name(self):
         pass
 
-    def get_connected_node_name(self):
-        # Nice name as it displays in the node editor
-        pass
 
     def get_connected_node_type(self):
         pass
@@ -160,24 +171,66 @@ class NEPConnectionFilter(QDialog):
     def get_connected_node_attrs(self):
         pass
 
-    def get_selected_connections(self):
+
+    def graph_selected_nodes(self):
         indexes = self.table.selectionModel().selectedRows()
         if indexes:
-            self.SELECTION = []
+            self.SELECTION = []  # Clear main selection
             for index in indexes:
-                print(f'Row {index.row()} is selected: {index.data()}')
-                self.SELECTION.append(index.data())
+                self.SELECTION.append(index.data())     # collect the Node name from the selected rows
+            self.graph_connection()
+            self.exit()
         else:
-            return cmds.warning("Please select the nodes you want to add")
+            cmds.warning("Please select the nodes you want to add")
 
-    def graph_connections(self, graph_all=True):
-        if graph_all:
-            print("Graphing all")
-        else:
-            self.get_selected_connections()
-            print("Graphing selected")
+    def graph_all_nodes(self):
+        self.graph_connection()
         self.exit()
 
+    def graph_connection(self):
+        source_node = self.PLUG_NAME.split(".", 1)[0]
+        print(source_node)
+        cmds.nodeEditor(self.node_editor, selectNode="", edit=True)  # clear
+        cmds.nodeEditor(self.node_editor, selectNode=source_node, edit=True)
+
+        source_item = self.get_selected_items()[0]
+
+        # first add them to make sure they exist in the graph
+        for node in self.SELECTION:
+            cmds.nodeEditor(self.node_editor, addNode=node, layout=False, edit=True)
+
+        # now grab their items
+        cmds.select(self.SELECTION)
+        cmds.refresh(force=True)
+        QTimer.singleShot(100, partial(self.graph_connection_organize, source_item, self.CONNECTION_TYPE))
+
+    def graph_connection_organize(self, source_item, conn_type):
+        # roughly aligns new added nodes to the source_item
+        cmds.nodeEditor(self.node_editor, nodeViewMode="connected", edit=True)
+        dest_items = self.get_selected_items()
+
+        # "inputs" align to the left
+        if conn_type == "input":
+            y_offset = source_item.pos().y()
+            for item in dest_items:
+                item.setPos(source_item.pos().x() - (item.boundingRect().width()) * 1.5, y_offset + 20)
+                y_offset = item.pos().y() + item.boundingRect().height()
+
+        # "outputs" align to the right
+        elif conn_type == "output":
+            y_offset = source_item.pos().y()
+            for item in dest_items:
+                item.setPos(source_item.pos().x() + (item.boundingRect().width()) * 1.5, y_offset + 20)
+                y_offset = +item.pos().y() + item.boundingRect().height()
+
+    def get_selected_items(self):
+        selected_items = []
+        scene = getCurrentScene(self.node_editor)
+        if scene:
+            sel = scene.selectedItems()
+            if sel:
+                selected_items = sel
+        return selected_items
 
     def populate_table(self, sorting_key=0):
         """
