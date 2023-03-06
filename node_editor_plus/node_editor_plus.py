@@ -10,7 +10,7 @@ from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 
 # version tracking
-VERSION = "0.1.27"
+VERSION = "0.1.28"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
@@ -185,12 +185,13 @@ class NodeEditorPlus():
                     return False
             else:
                 return True
+
     @staticmethod
     def static_show_message(ned=None, message=None, message_type=0, duration=3):
         cmds.nodeEditor(ned, edit=True, hudMessage=[message, message_type, duration])
 
     @staticmethod
-    def clear_graph(ned=None):
+    def static_clear_graph(ned=None):
         # clean clear procedure so we don't crash Maya
         scene = getCurrentScene(ned)
         if scene:
@@ -199,6 +200,8 @@ class NodeEditorPlus():
                 for item in scene_items:
                     if type(item) in [custom_nodes.NEPComment, custom_nodes.NEPImage]:
                         item.delete()
+            # clears bookmark info if any
+            cmds.nodeEditor(ned, edit=True, hudMessage=["",2,0])
 
 
     def comment_key_callback(self, *args):
@@ -229,6 +232,10 @@ class NodeEditorPlus():
         elif mods == 4 and key_pressed == "F":
             self.show_search_menu()
             return True
+        # save bookmark
+        #elif mods == 4 and key_pressed == "S":
+        #    self.save_current_loaded_bookmark()
+        #    return True
         # graph input connection
         elif key_pressed == "I":
             self.graph_connection("input")
@@ -384,6 +391,11 @@ class NodeEditorPlus():
 
     def hide_default_HUD_message(self):
         cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 3, 0))
+
+    def set_bookmark_HUD_message(self, message):
+        cmds.nodeEditor(self.node_editor, edit=True, hudMessage=("", 2, 0))
+        cmds.refresh(force=True)
+        cmds.nodeEditor(self.node_editor, edit=True, hudMessage=(message, 2, 0))
 
     def get_selected_items(self):
         selected_items = []
@@ -623,8 +635,26 @@ class NodeEditorPlus():
                 return_dict["created_attr"] = True
         return return_dict
 
-    def save_nep_data_to_bookmark(self, info_node):
+    def save_nep_data_to_bookmark(self, info_node=None, bookmark_name=None):
         attr_name = "NEP_DATA"
+
+        # duplicate of original code to find the nodeGraphEditorBookmarkInfo with the given name
+        # this is used in the replace functions
+        if bookmark_name:
+            _bookmarks = []
+            bookmarkInfos = cmds.ls(type='nodeGraphEditorBookmarkInfo')
+            for bookmarkInfo in bookmarkInfos:
+                name = cmds.getAttr(bookmarkInfo + '.name')
+                if not len(name):
+                    # ignore bookmarks with null descriptions, these are likely
+                    # implicitly saved panel states
+                    continue
+                _bookmarks.append((name,bookmarkInfo))
+
+            for n,i in _bookmarks:
+                if n == bookmark_name:
+                    info_node = i
+
         if cmds.objExists(info_node):
             if not cmds.attributeQuery(attr_name, node=info_node, exists=True):
                 cmds.addAttr(info_node, ln=attr_name, dataType="string")
@@ -641,6 +671,8 @@ class NodeEditorPlus():
                     elif item_type == custom_nodes.NEPImage:
                         dump_dict["bookmark"].append( {"nep_type":"image",   "img_index":item.img_index, "pos":{"x":item.pos().x(), "y":item.pos().y()}, "width":item.content_rect.width(), "height":item.content_rect.height(), "bg_color":item.bg_color.name(), "is_pinned":item.is_pinned} )
                 cmds.setAttr(info_node+"."+attr_name, json.dumps(dump_dict), type="string")
+            # display bookmark info
+            self.set_bookmark_HUD_message("Loaded Bookmark: [{}:{}]".format(cmds.getAttr(info_node+".name"), info_node))
 
     def load_nep_data_from_bookmark(self, info_node):
         attr_name = "NEP_DATA"
@@ -669,6 +701,13 @@ class NodeEditorPlus():
                     nep_item.setZValue(-1)
                 nep_item.setPos(item["pos"]["x"], item["pos"]["y"])
 
+        # display bookmark info
+        self.set_bookmark_HUD_message("Loaded Bookmark: [{}:{}]".format(cmds.getAttr(info_node+".name"), info_node))
+
+    def save_current_loaded_bookmark(self):
+        current_bookmark_info = cmds.nodeEditor(self.node_editor, query=True, hudMessage=True) # this doesn't work
+        print(current_bookmark_info)
+        #self.save_nep_data_to_bookmark(info_node=None, bookmark_name=None)
 
     def save_nep_data_to_scene(self):
         tabs_dict = OrderedDict()
