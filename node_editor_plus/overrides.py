@@ -14,14 +14,14 @@ def override_clear_function(node_editor):
                         if (`python("node_editor_plus.NodeEditorPlus.is_graph_extended(\\"'''+node_editor+'''\\")")`)
                         {
                             if (`python("node_editor_plus.NodeEditorPlus.is_graph_suppressed()")` == 1) {
-                                python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                python("node_editor_plus.NodeEditorPlus.static_clear_graph(\\"'''+node_editor+'''\\")");
                                 $execute = 1;
                             } else {
                                 if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nAre you sure you want to clear the graph?\\nThis operation is NOT undoable."
                                                         -button "Yes" -button "No" -defaultButton "No"
                                                         -cancelButton "No" -dismissString "No"` == "Yes")
                                 {
-                                    python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                    python("node_editor_plus.NodeEditorPlus.static_clear_graph(\\"'''+node_editor+'''\\")");
                                     $execute = 1;
                                 } else {
                                     $execute = 0;
@@ -90,14 +90,14 @@ def override_graph_function(node_editor):
                                 if (`python("node_editor_plus.NodeEditorPlus.clean_selection(\\"'''+node_editor+'''\\")")`)
                                 {
                                     if (`python("node_editor_plus.NodeEditorPlus.is_graph_suppressed()")` == 1) {
-                                        python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                        python("node_editor_plus.NodeEditorPlus.static_clear_graph(\\"'''+node_editor+'''\\")");
                                         $execute = 1;
                                     } else {
                                         if (`confirmDialog -title "Confirm" -message "There are Comments or Images in the current Tab.\\nGraphing will delete them, are you sure?\\nThis operation is NOT undoable."
                                                         -button "Yes" -button "No" -defaultButton "No"
                                                         -cancelButton "No" -dismissString "No"` == "Yes")
                                         {
-                                            python("node_editor_plus.NodeEditorPlus.clear_graph(\\"'''+node_editor+'''\\")");
+                                            python("node_editor_plus.NodeEditorPlus.static_clear_graph(\\"'''+node_editor+'''\\")");
                                             $execute = 1;
                                         } else {
                                             $execute = 0;
@@ -177,7 +177,7 @@ def decorate_bookmarks_functions(NEP):
                 execute = True
 
             if execute:
-                node_editor_plus.NodeEditorPlus.clear_graph(NEP.node_editor)
+                node_editor_plus.NodeEditorPlus.static_clear_graph(NEP.node_editor)
                 # make sure code is pointing to right editor
                 args_list = list(args)
                 args_list[0] = NEP.node_editor
@@ -195,15 +195,46 @@ def decorate_bookmarks_functions(NEP):
                 txt = txt[0]
                 info = args[0]._findInfo(txt)
                 bookmark_name = cmds.getAttr(info + ".name")
-                NEP.save_nep_data_to_bookmark(bookmark_name)
+                NEP.save_nep_data_to_bookmark(bookmark_name=bookmark_name)
             return output
         return wrapper
 
+    def handle_rename_decor(function):
+        def wrapper(*args, **kwargs):
+            output = function(*args, **kwargs) # run original function
+            # update hud text with new bookmark name
+            NEP.set_bookmark_HUD_message("Loaded Bookmark: [{}:{}]".format(args[1], args[0]))
+            return output
+        return wrapper
+
+    # override entire delete function to fix an issue (from original Maya) where you can't delete empty bookmarks
+    def NEP_deleteBookmarks(infos):
+        # disconnect saved nodes from the bookmark info nodes we're deleting so they don't get deleted as well
+        for bookmarkInfo in infos:
+            if bookmarkInfo:
+                bookmarkInfoIndices = cmds.getAttr(bookmarkInfo + '.nodeInfo', multiIndices=True)
+                if bookmarkInfoIndices:
+                    nodeInfoDepNodeAttrFormat = bookmarkInfo + '.nodeInfo[{}].dependNode'
+                    for index in bookmarkInfoIndices:
+                        nodeInfoDepNodeAttr = nodeInfoDepNodeAttrFormat.format(str(index))
+                        depNodeMessageAttr = cmds.connectionInfo(nodeInfoDepNodeAttr, sourceFromDestination=True)
+                        if depNodeMessageAttr:
+                            cmds.disconnectAttr(depNodeMessageAttr, nodeInfoDepNodeAttr)
+
+        # delete the supplied bookmarks
+        todelete = []
+        todelete.extend(infos)
+        if len(todelete):
+            cmds.delete(*todelete)
+        maya.app.general.nodeEditorBookmarks._refreshWindow()
+
     import maya.app.general.nodeEditorBookmarks
     importlib.reload(maya.app.general.nodeEditorBookmarks)
-    maya.app.general.nodeEditorBookmarks.createBookmark = handle_save_decor(maya.app.general.nodeEditorBookmarks.createBookmark)
-    maya.app.general.nodeEditorBookmarks.loadBookmark   = handle_load_decor(maya.app.general.nodeEditorBookmarks.loadBookmark)
+    maya.app.general.nodeEditorBookmarks.createBookmark  = handle_save_decor(maya.app.general.nodeEditorBookmarks.createBookmark)
+    maya.app.general.nodeEditorBookmarks.loadBookmark    = handle_load_decor(maya.app.general.nodeEditorBookmarks.loadBookmark)
+    maya.app.general.nodeEditorBookmarks._renameBookmark = handle_rename_decor(maya.app.general.nodeEditorBookmarks._renameBookmark)
     maya.app.general.nodeEditorBookmarks.NodeEditorBookmarksWindow._onReplace = handle_replace_decor(maya.app.general.nodeEditorBookmarks.NodeEditorBookmarksWindow._onReplace)
+    maya.app.general.nodeEditorBookmarks._deleteBookmarks = NEP_deleteBookmarks
 
     # fix initial bookmarks, I guess this function is never called the way we create the editor
     maya.app.general.nodeEditorBookmarks.addCallback(NEP.node_editor)
