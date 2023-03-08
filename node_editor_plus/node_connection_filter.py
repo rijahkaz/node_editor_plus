@@ -11,6 +11,7 @@ def maya_main_window():
     main_window_ptr = OpenMayaUI.MQtUtil.mainWindow()
     return wrapInstance(int(main_window_ptr), QWidget)
 
+
 def getCurrentScene(node_editor):
     ctrl = OpenMayaUI.MQtUtil.findControl(node_editor)
     if ctrl is None:
@@ -21,48 +22,45 @@ def getCurrentScene(node_editor):
     scene = graph_view.scene()
     return scene
 
+
 class NEPConnectionFilter(QDialog):
-    def __init__(self, NEP=None, plug="plug", conn_type="input", conn_nodes=[], parent=maya_main_window()):
+    """
+    Pop-up window to filter and select connections.
+    For now only outputs meet the criteria for filter.
+    Maybe future update can check all inputs to a node, not just a node's attributes?
+    TODO: Option for NO unit conversion nodes?
+    """
+
+    def __init__(self, NEP=None, plug="plug", conn_type="output", conn_nodes=[], node_editor=None,
+                 parent=maya_main_window()):
         super(NEPConnectionFilter, self).__init__(parent)
 
-        p = cmds.scriptedPanel(type="nodeEditorPanel")
-        self.node_editor = p + "NodeEditorEd"
+        clean_list = [*set(conn_nodes)]  # No duplicate node names (node-attr pairs make duplicate names)
 
+        self.node_editor = node_editor
+        self.node_info = []
         self.CATEGORY = ("Node", "Attribute", "Type")
-        self.SELECTION = conn_nodes     # All nodes by default unless get_selected_nodes is triggered
         self.NEP = NEP
         self.PLUG_NAME = plug
+        self.SELECTION = clean_list
         self.CONNECTION_TYPE = conn_type
-        self.NODES_LIST = conn_nodes
+        self.NODES_LIST = clean_list
 
         mouse_pos = QCursor.pos()
         initial_width = 382
         initial_height = 300
 
-        # TESTING DATA  TODO: use a zip method for real thing
-        # self.node_info = [["node1_postfix", "translateX", "abc"],
-        #                   ["node2", "translateY", "123"],
-        #                   ["node3", "translateY", "abc"],
-        #                   ["transform1", "translateX\ntranslateY", "123"],
-        #                   ["nice", "translateX", "123"],
-        #                   ["prefix_ok", "translateY", "123"],
-        #                   ["ok_postfix", "translateY", "abc"],
-        #                   ["this is a very very very long name", "translateX", "abc"]]
-
-        self.node_info = self.NODES_LIST
-
         self.setMinimumSize(initial_height, initial_width)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setGeometry(mouse_pos.x() + 20, mouse_pos.y() - (initial_height/2), initial_width, initial_height)
+        self.setGeometry(mouse_pos.x() + 20, mouse_pos.y() - (initial_height / 2), initial_width, initial_height)
 
         self.create_widgets()
         self.create_layout()
         self.create_connections()
 
     def create_widgets(self):
-        # Corner resizing grips
-        self.grips = []
+        self.grips = []      # Corner resizing grips
         self.grip_size = 8
         for i in range(4):
             grip = QSizeGrip(self)
@@ -90,11 +88,12 @@ class NEPConnectionFilter(QDialog):
         self.instant_search_field.setPlaceholderText("Filter by Node")  # DEFAULT FILTER: Node
 
         self.graph_selected_btn = QPushButton("Graph Selected")
-        self.graph_all_btn = QPushButton(f"Graph All ( {len(self.node_info)} )")
+        self.graph_all_btn = QPushButton(f"Graph All ( {len(self.NODES_LIST)} )")
 
         #########################
         #   BUILD THE TABLE
         #########################
+        self.node_info = self.get_connected_node_info()
         self.model = QStandardItemModel(len(self.node_info), 1)
         self.model.setHorizontalHeaderLabels(self.CATEGORY)
 
@@ -161,67 +160,86 @@ class NEPConnectionFilter(QDialog):
     #########################
     #   HELPER FUNCTIONS
     #########################
-    def get_attr_under_mouse_name(self):
-        pass
+    def get_connected_node_info(self):
+        sorted_nodes = sorted(self.NODES_LIST)
+        node_attrs_loose = sorted(cmds.listConnections(self.PLUG_NAME, plugs=True, destination=True, source=False))
+        node_attrs = []
+        node_types = [cmds.nodeType(x) for x in sorted_nodes]
 
+        for node_name in sorted_nodes:
+            # Get all matching node_name from a list [node_name.attrName1, node_name.attrName2...]
+            matching_node_attrs = [x for x in node_attrs_loose if node_name in x]
+            # Remove the node name, leaving only the attribute name
+            for attr in matching_node_attrs:
+                index = matching_node_attrs.index(attr)
+                matching_node_attrs[index] = attr.split(".", 1)[1]
+            # Make those attribute names a single string separated by newline
+            node_attr_string = "\n".join(matching_node_attrs)
+            # Add to the node attrs list
+            node_attrs.append(node_attr_string)
 
-    def get_connected_node_type(self):
-        pass
+        node_info = set(zip(sorted_nodes, node_attrs, node_types))
+        return node_info
 
-    def get_connected_node_attrs(self):
-        pass
+    def populate_table(self, sorting_key=0):
+        """
+        Populates the table with connected node data and refreshes it sorted by column. Default is sorting by Node name.
+        :param sorting_key: (integer) The index used to sort the node info by [Node, Attribute, Type].
+        """
+        for row, item in enumerate(sorted(self.node_info, key=lambda x: x[sorting_key])):
+            data = QStandardItem(item[0])   # Name
+            self.model.setItem(row, 0, data)
+            data = QStandardItem(item[1])   # Attribute
+            self.model.setItem(row, 1, data)
+            data = QStandardItem(item[2])   # Type
+            self.model.setItem(row, 2, data)
 
+    def on_combo_text_changed(self, text=""):
+        """
+        Changes the table and filters the node info by Node name, Attribute, or Type.
+
+        :param text: (str) the text in the combobox
+        """
+        sys.stdout.write(f"Filtering Nodes by: {text}\n")
+        self.instant_search_field.setPlaceholderText(f"Filter by {text}")
+        index = self.CATEGORY.index(text)  # What's sorted with
+        self.populate_table(index)
+        self.filter_proxy_model.setFilterKeyColumn(index)
 
     def graph_selected_nodes(self):
         indexes = self.table.selectionModel().selectedRows()
         if indexes:
             self.SELECTION = []  # Clear main selection
             for index in indexes:
-                self.SELECTION.append(index.data())     # collect the Node name from the selected rows
+                self.SELECTION.append(index.data())  # collect the Node name from the selected rows
             self.graph_connection()
             self.exit()
         else:
-            cmds.warning("Please select the nodes you want to add")
+            cmds.warning("Please select the nodes you want to add!")
 
     def graph_all_nodes(self):
         self.graph_connection()
         self.exit()
 
     def graph_connection(self):
-        source_node = self.PLUG_NAME.split(".", 1)[0]
-        print(source_node)
-        cmds.nodeEditor(self.node_editor, selectNode="", edit=True)  # clear
-        cmds.nodeEditor(self.node_editor, selectNode=source_node, edit=True)
-
         source_item = self.get_selected_items()[0]
 
-        # first add them to make sure they exist in the graph
-        for node in self.SELECTION:
+        for node in self.SELECTION:  # first add them to make sure they exist in the graph
             cmds.nodeEditor(self.node_editor, addNode=node, layout=False, edit=True)
 
-        # now grab their items
-        cmds.select(self.SELECTION)
+        cmds.select(self.SELECTION)  # now grab their items
         cmds.refresh(force=True)
-        QTimer.singleShot(100, partial(self.graph_connection_organize, source_item, self.CONNECTION_TYPE))
+        QTimer.singleShot(100, partial(self.graph_connection_organize, source_item))
 
-    def graph_connection_organize(self, source_item, conn_type):
+    def graph_connection_organize(self, source_item):
         # roughly aligns new added nodes to the source_item
         cmds.nodeEditor(self.node_editor, nodeViewMode="connected", edit=True)
         dest_items = self.get_selected_items()
 
-        # "inputs" align to the left
-        if conn_type == "input":
-            y_offset = source_item.pos().y()
-            for item in dest_items:
-                item.setPos(source_item.pos().x() - (item.boundingRect().width()) * 1.5, y_offset + 20)
-                y_offset = item.pos().y() + item.boundingRect().height()
-
-        # "outputs" align to the right
-        elif conn_type == "output":
-            y_offset = source_item.pos().y()
-            for item in dest_items:
-                item.setPos(source_item.pos().x() + (item.boundingRect().width()) * 1.5, y_offset + 20)
-                y_offset = +item.pos().y() + item.boundingRect().height()
+        y_offset = source_item.pos().y()
+        for item in dest_items:
+            item.setPos(source_item.pos().x() + (item.boundingRect().width()) * 1.5, y_offset + 20)
+            y_offset = +item.pos().y() + item.boundingRect().height()
 
     def get_selected_items(self):
         selected_items = []
@@ -232,48 +250,8 @@ class NEPConnectionFilter(QDialog):
                 selected_items = sel
         return selected_items
 
-    def populate_table(self, sorting_key=0):
-        """
-        Populates the table with connected node data and refreshes it sorted by column. Default is sorting by Node name.
-
-        :param sorting_key: (integer) The index used to sort the node info by Node name, Attribute, or Type.
-        """
-        for row, item in enumerate(sorted(self.node_info, key=lambda x: x[sorting_key])):
-            data = QStandardItem(item)  # Name
-            self.model.setItem(row, 0, data)
-            #data = QStandardItem(item[1])  # Attribute
-            #self.model.setItem(row, 1, data)
-            #data = QStandardItem(item[2])  # Type
-            #self.model.setItem(row, 2, data)
-
-    def on_combo_text_changed(self, text=""):
-        """
-        Changes the table and filters the node info by Node name, Attribute, or Type.
-
-        :param text: (str) the text in the combobox
-        """
-        sys.stdout.write(f"Filtering Nodes by: {text}")
-        self.instant_search_field.setPlaceholderText(f"Filter by {text}")
-        index = self.CATEGORY.index(f"{text}")  # What's sorted with
-        self.populate_table(index)
-        self.filter_proxy_model.setFilterKeyColumn(index)
-
     def exit(self):
         self.close()
         self.deleteLater()
         print(self.SELECTION)
         return self.SELECTION
-
-"""
-if __name__ == "__main__":
-
-    # noinspection PyBroadException
-    try:
-        nep_connection_filter.close()
-        nep_connection_filter.deleteLater()
-    except:
-        pass
-
-    nep_connection_filter = NEPConnectionFilter()
-    nep_connection_filter.show()
-"""
