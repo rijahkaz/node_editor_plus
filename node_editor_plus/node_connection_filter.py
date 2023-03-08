@@ -253,5 +253,3 @@ class NEPConnectionFilter(QDialog):
     def exit(self):
         self.close()
         self.deleteLater()
-        print(self.SELECTION)
-        return self.SELECTION
