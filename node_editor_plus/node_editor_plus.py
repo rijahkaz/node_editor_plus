@@ -572,7 +572,12 @@ class NodeEditorPlus():
                 cmds.setAttr(NODE_EDITOR_CFG + ".IMG_LIST", size, *img_array, type="stringArray")
 
     def graph_connection(self, conn_type="output"):
-        nepGraphLimit = 3  # if greater than max number of nodes, show the node connection filter window
+        if not cmds.optionVar(exists="nepGraphLimit"):
+            nepGraphLimit = 3
+            cmds.optionVar(intValue=["nepGraphLimit", nepGraphLimit])
+        else:
+            nepGraphLimit = cmds.optionVar(query="nepGraphLimit")
+
         plug_under_cursor = cmds.nodeEditor(self.node_editor, feedbackPlug=True, query=True)
         if plug_under_cursor:
             con_nodes = []
@@ -583,7 +588,7 @@ class NodeEditorPlus():
                 con_nodes = cmds.listConnections(plug_under_cursor, source=False, destination=True,
                                                  skipConversionNodes=False)
 
-            if len(con_nodes) < nepGraphLimit:
+            if con_nodes and len(con_nodes) < nepGraphLimit:
                 source_node = cmds.nodeEditor(self.node_editor, feedbackNode=True, query=True)
                 cmds.nodeEditor(self.node_editor, selectNode="", edit=True)  # clear
                 cmds.nodeEditor(self.node_editor, selectNode=source_node, edit=True)
