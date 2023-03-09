@@ -35,8 +35,8 @@ class NEPConnectionFilter(QDialog):
                  parent=maya_main_window()):
         super(NEPConnectionFilter, self).__init__(parent)
 
-        clean_list = [*set(conn_nodes)]  # No duplicate node names (node-attr pairs make duplicate names)
-
+        clean_list = [*set(conn_nodes)]     # No duplicate node names (node-attr pairs make duplicate names)
+        self.old_pos = None                 # Mouse position before resizing window is stored here
         self.node_editor = node_editor
         self.node_info = []
         self.CATEGORY = ("Node", "Attribute", "Type")
@@ -222,6 +222,9 @@ class NEPConnectionFilter(QDialog):
         self.exit()
 
     def graph_connection(self):
+        cmds.select(clear=True)
+        cmds.select(self.PLUG_NAME.split('.',1)[0])     # The name of the node pulled from the nodeName.attrName pair
+
         source_item = self.get_selected_items()[0]
 
         for node in self.SELECTION:  # first add them to make sure they exist in the graph
