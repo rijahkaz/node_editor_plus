@@ -588,7 +588,7 @@ class NodeEditorPlus():
                 con_nodes = cmds.listConnections(plug_under_cursor, source=False, destination=True,
                                                  skipConversionNodes=False)
 
-            if con_nodes and len(con_nodes) < nepGraphLimit:
+            if con_nodes and len(con_nodes) <= nepGraphLimit :
                 source_node = cmds.nodeEditor(self.node_editor, feedbackNode=True, query=True)
                 cmds.nodeEditor(self.node_editor, selectNode="", edit=True)  # clear
                 cmds.nodeEditor(self.node_editor, selectNode=source_node, edit=True)
@@ -604,8 +604,13 @@ class NodeEditorPlus():
                 cmds.refresh(force=True)
                 QTimer.singleShot(100, partial(self.graph_connection_organize, source_item, conn_type))
             else:
-                self.show_connection_filter(plug=plug_under_cursor, conn_type=conn_type, conn_nodes=con_nodes,
-                                            node_editor=self.node_editor)
+                if con_nodes is not None:
+                    self.show_connection_filter(plug=plug_under_cursor, conn_type=conn_type, conn_nodes=con_nodes,
+                                                node_editor=self.node_editor)
+                else:
+                    warning = f"{plug_under_cursor} has no {conn_type} connections!"
+                    cmds.warning(warning)
+                    cmds.inViewMessage(amg=warning, pos='midCenter', fade=True)
 
     def graph_connection_organize(self, source_item, conn_type):
         # roughly aligns new added nodes to the source_item
