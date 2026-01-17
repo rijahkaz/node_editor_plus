@@ -1,9 +1,16 @@
 import sys
 from functools import partial
-from shiboken2 import wrapInstance
-from PySide2.QtWidgets import *
-from PySide2.QtGui import *
-from PySide2.QtCore import *
+
+try:
+    from shiboken2 import wrapInstance
+    from PySide2.QtWidgets import *
+    from PySide2.QtGui import *
+    from PySide2.QtCore import *
+except ImportError:
+    from shiboken6 import wrapInstance
+    from PySide6.QtWidgets import *
+    from PySide6.QtGui import *
+    from PySide6.QtCore import *
 from maya import mel, cmds, OpenMayaUI
 
 

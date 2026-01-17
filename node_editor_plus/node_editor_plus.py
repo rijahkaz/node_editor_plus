@@ -2,16 +2,25 @@ import os, json, base64, importlib
 from functools import partial
 from collections import OrderedDict
 from maya import mel, cmds, OpenMayaUI
-from shiboken2 import wrapInstance
-from PySide2.QtWidgets import *
-from PySide2.QtGui import *
-from PySide2.QtCore import *
+
+try:
+    from shiboken6 import wrapInstance
+    from PySide6.QtWidgets import *
+    from PySide6.QtGui import *
+    from PySide6.QtCore import *
+except ImportError:
+    from shiboken2 import wrapInstance
+    from PySide2.QtWidgets import *
+    from PySide2.QtGui import *
+    from PySide2.QtCore import *
+
+
 from node_editor_plus import custom_nodes
 from node_editor_plus import overrides
 from node_editor_plus import node_connection_filter
 
 # version tracking
-VERSION = "0.1.29"
+VERSION = "0.1.30"
 
 # constants
 WINDOW_NAME = "NodeEditorPlusWindow"
